@@ -1,7 +1,0 @@
-[
-{
-  "directory": "C:/Program Files/llvm-project/clang-tools-extra/minimeta/example/out/build/x64-Debug",
-  "command": "C:\\PROGRA~2\\MIB055~1\\2019\\COMMUN~1\\VC\\Tools\\Llvm\\x64\\bin\\clang-cl.exe  /nologo -TP -m64 -fdiagnostics-absolute-paths  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 /FoCMakeFiles\\minimeta-example.dir\\main.cpp.obj /FdTARGET_COMPILE_PDB -c -- \"C:\\Program Files\\llvm-project\\clang-tools-extra\\minimeta\\example\\main.cpp\"",
-  "file": "C:/Program Files/llvm-project/clang-tools-extra/minimeta/example/main.cpp"
-}
-]
