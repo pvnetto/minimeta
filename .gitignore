@@ -25,7 +25,7 @@
 /*/CMakeUserPresets.json
 
 # Nested build directory
-/out
+/example/out/build
 /out/build
 /build*
 
