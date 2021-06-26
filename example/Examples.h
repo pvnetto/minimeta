@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Minimeta.h"
+#include "Minimeta.hpp"
 
 class SERIALIZABLE CustomAccessors {
 public:

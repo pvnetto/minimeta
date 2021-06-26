@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Minimeta.h"
+#include "Minimeta.hpp"
 
 struct SERIALIZABLE Vec3 {
     float X, Y, Z;
@@ -12,4 +12,12 @@ public:
 
 private:
     const char* name = "Paiva";
+};
+
+
+class Foo {
+public:
+    int a;
+
+    void Bar();
 };

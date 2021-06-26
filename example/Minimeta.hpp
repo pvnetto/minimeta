@@ -9,3 +9,11 @@
 #define SERIALIZE
 #define INTERNAL
 #endif
+
+
+namespace mmeta {
+    template <typename T>
+    struct is_serializable {
+        static constexpr bool value = false;
+    };
+}
