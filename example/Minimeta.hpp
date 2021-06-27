@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__clang__) || defined(__GNUC__)
+#ifdef __MMETA__
 #define SERIALIZABLE __attribute__((annotate("mm-type")))
 #define SERIALIZE __attribute__((annotate("mm-add")))
 #define INTERNAL __attribute__((annotate("mm-ignore")))
@@ -17,3 +17,5 @@ namespace mmeta {
         static constexpr bool value = false;
     };
 }
+
+#include "Generated.hpp"

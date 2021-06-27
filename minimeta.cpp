@@ -60,11 +60,12 @@ static const std::string generatedFileHeader = R"(
 
 static auto GenerateIsSerializableSrc(const mmeta::TypeInfo& typeMeta) {
   return llvm::format(R"(
-template <>
-struct is_serializable<%s> {
-  static constexpr bool value = true;
-};
-)", typeMeta.Name.c_str());
+  template <>
+  struct is_serializable<%s> {
+    static constexpr bool value = true;
+  };
+
+  )", typeMeta.Name.c_str());
 }
 
 static auto GenerateForwardDeclSrc(const mmeta::TypeInfo& typeMeta) {
@@ -87,7 +88,7 @@ void GenerateTypeMetadataSource(std::vector<mmeta::TypeInfo> &types) {
 
     assert(!errorCode && "Couldn't open file!");
 
-    outputStream << "#ifndef __MMETA_IGNORE__\n";
+    outputStream << "#ifndef __MMETA__\n";
     outputStream << generatedFileHeader;
     for(const auto& typeMeta : pool.second) {
       outputStream << GenerateForwardDeclSrc(typeMeta);
@@ -186,12 +187,11 @@ int main(int argc, const char **argv) {
   ClangTool tool{optionsParser.getCompilations(),
                        optionsParser.getSourcePathList()};
 
-  // Adds a compiler flag that defines a macro to ignore generated code.
-  // We need this so the tool won't generate duplicate code when it's run
-  // consecutive times.
+  // Adds a compiler flag that defines a macro used by the runtime
+  // to preprocess code that this tool should or shouldn't compile
   ArgumentsAdjuster ignoreGeneratedAdjuster;
   ignoreGeneratedAdjuster = combineAdjusters(
-        getInsertArgumentAdjuster("-D __MMETA_IGNORE__", tooling::ArgumentInsertPosition::BEGIN),
+        getInsertArgumentAdjuster("-D __MMETA__", tooling::ArgumentInsertPosition::BEGIN),
         ignoreGeneratedAdjuster);
   tool.appendArgumentsAdjuster(ignoreGeneratedAdjuster);
 
