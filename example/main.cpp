@@ -8,8 +8,9 @@ int main() {
     printf("Is NotSerializable serializable? %s\n", mmeta::is_serializable<NotSerializable>::value ? "true" : "false");
 
 
-    mmeta::type<int>()->dump();
-    mmeta::type<float>()->dump();
+    mmeta::typemeta_v<int>->dump();
+    mmeta::typemeta_v<float>->dump();
+    mmeta::typemeta_v<Vec3>->dump();
 
     return 0;
 }
