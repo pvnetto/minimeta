@@ -72,9 +72,9 @@ namespace mmeta {
     class mmclass : public mmtype {
     public:
         mmclass() = default;
-        mmclass(uint32_t numFields, mmfield* fields) :
+        mmclass(const uint64_t size, const uint64_t hash, const char* name, uint32_t numFields, mmfield* fields) :
+            mmtype(size, hash, name),
             m_numFields(numFields), m_fields(fields) { }
-
     private:
         uint32_t m_numFields = 0;
         mmfield* m_fields = nullptr;
@@ -99,6 +99,8 @@ namespace mmeta {
     using primitive_type = std::enable_if_t<std::is_fundamental_v<T>, mmtype const *>;
     template <typename T>
     using user_defined_type = std::enable_if_t<!std::is_fundamental_v<T>, mmtype const *>;
+    template <typename T>
+    using class_type = std::enable_if_t<std::is_class_v<T>, mmclass const *>;
 
     template <typename T>
     struct is_serializable {
@@ -106,7 +108,7 @@ namespace mmeta {
     };
 
     template <typename T>
-    mmclass const * metadata() {
+    class_type<T> get_class_meta() {
         static const mmclass data;
         return &data;
     }
@@ -119,35 +121,43 @@ namespace mmeta {
 
     template <typename T>
     user_defined_type<T> get_type_meta() {
-        return metadata<T>();
+        return get_class_meta<T>();
     }
 
 
     // ========================================================================-------
     // ======= Syntatic sugar
     // ========================================================================-------
-    template <typename T>
-    struct typemeta {
-        static mmtype const * value;
+    template<typename T>
+    mmtype const* typemeta_v = get_type_meta<T>();
+
+    template<typename T>
+    class_type<T> classmeta_v = get_class_meta<T>();
+
+
+    struct teststruct {
+        int a;
+        char b;
     };
 
-    template<typename T>
-    mmtype const* typemeta<T>::value = get_type_meta<T>();
-
-    template<typename T>
-    mmtype const* typemeta_v = typemeta<T>::value;
-    
-    
-    template <typename T>
-    struct classmeta {
-        static mmclass const * value;
-    };
-
-    template<typename T>
-    mmclass const* classmeta<T>::value = metadata<T>();
-
-    template<typename T>
-    mmclass const* classmeta_v = classmeta<T>::value;
+    template <>
+    class_type<teststruct> get_class_meta<teststruct> () {
+        auto ctor = [](mmclass_storage<teststruct, 2>* self) {
+            // self
+            self->Fields[0] = { typemeta_v<int>, "a" };
+            self->Fields[1] = { typemeta_v<char>, "c" };
+        };
+        mmclass_storage<teststruct, 2> storage {ctor};
+        
+        static mmclass data {
+            sizeof(teststruct),
+            utils::hash("teststruct"),
+            "teststruct",
+            storage.FieldCount,
+            storage.Fields
+        };
+        return &data;
+    } 
 }
 
 #include "Generated.hpp"
