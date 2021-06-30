@@ -1,8 +1,13 @@
 #pragma once
 
+#include <iostream>
+
 #include <stdint.h>
 #include <type_traits>
 #include <typeinfo>
+
+#include <string_view>
+
 
 #ifdef __MMETA__
 #define SERIALIZABLE __attribute__((annotate("mm-type")))
@@ -12,6 +17,23 @@
 #define SERIALIZABLE
 #define SERIALIZE
 #define INTERNAL
+#endif
+
+// based on: https://github.com/Manu343726/ctti/blob/master/include/ctti/detail/pretty_function.hpp
+#if defined(__clang__)
+    #define MMETA_PRETTY_FUNCTION __PRETTY_FUNCTION__
+    #define MMETA_NAME_PREFFIX "mmeta::utils::type_name<"
+    #define MMETA_NAME_SUFFIX ">" 
+#elif defined(__GNUC__) && !defined(__clang__)
+    #define MMETA_PRETTY_FUNCTION __PRETTY_FUNCTION__
+    #define MMETA_NAME_PREFFIX "mmeta::utils::type_name<"
+    #define MMETA_NAME_SUFFIX ">" 
+#elif defined(_MSC_VER)
+    #define MMETA_PRETTY_FUNCTION __FUNCSIG__
+    #define MMETA_NAME_PREFFIX "mmeta::utils::type_name<"
+    #define MMETA_NAME_SUFFIX ">::prettified_name"
+#else
+    #error "No support for this compiler."
 #endif
 
 namespace mmeta {
@@ -26,6 +48,23 @@ namespace mmeta {
                     ? value
                     : hash(&str[1], (value ^ uint64_t(str[0])) * kFNV1aPrime);
         }
+
+        template <typename T>
+        struct type_name {
+          static constexpr std::string_view prettified_name() {
+              constexpr std::string_view ugly_name = { MMETA_PRETTY_FUNCTION };
+
+              constexpr std::string_view preffix = { MMETA_NAME_PREFFIX }; 
+              constexpr const size_t preffixLoc = ugly_name.find(preffix);
+              constexpr std::string_view padded_front = ugly_name.substr(preffixLoc + preffix.size());
+
+              constexpr std::string_view suffix = { MMETA_NAME_SUFFIX }; 
+              constexpr const size_t suffixLoc = padded_front.find(suffix);
+              return padded_front.substr(0, suffixLoc);
+          }
+
+          static constexpr std::string_view name = prettified_name();
+        };
     }
 }
 
@@ -37,21 +76,22 @@ namespace mmeta {
     class mmtype {
     public:
         mmtype() = default;
-        mmtype(const uint64_t size, const uint64_t hash, const char* name) : 
+        mmtype(const uint64_t size, const uint64_t hash, std::string_view name) : 
             m_size(size), m_hash(hash), m_name(name) { }
 
-        inline const char* name() const { return m_name; }
+        inline std::string_view name() const { return m_name; }
         inline uint64_t size() const { return m_size; }
         inline uint64_t hash() const { return m_hash; }
 
         void dump() const {
-            printf("info: name => %s, size => %lli, hash => %lli\n", name(), size(), hash());
+            std::cout << "info: " << name() << "\n";
+            // printf("info: name => %s, size => %lli, hash => %lli\n", std::string{ name() }.c_str(), size(), hash());
         }
 
     private:
         uint64_t m_size = 0;
         uint64_t m_hash = 0;
-        const char* m_name = "";
+        std::string_view m_name = "";
     };
 
 
@@ -72,7 +112,7 @@ namespace mmeta {
     class mmclass : public mmtype {
     public:
         mmclass() = default;
-        mmclass(const uint64_t size, const uint64_t hash, const char* name, uint32_t numFields, mmfield* fields) :
+        mmclass(const uint64_t size, const uint64_t hash, std::string_view name, uint32_t numFields, mmfield* fields) :
             mmtype(size, hash, name),
             m_numFields(numFields), m_fields(fields) { }
     private:
@@ -115,7 +155,7 @@ namespace mmeta {
 
     template <typename T>
     primitive_type<T> get_type_meta() {
-        static const mmtype data { sizeof(T), utils::hash(typeid(T).name()), typeid(T).name() };
+        static const mmtype data { sizeof(T), utils::hash(typeid(T).name()), utils::type_name<T>::name };
         return &data;
     }
 
@@ -152,7 +192,7 @@ namespace mmeta {
         static mmclass data {
             sizeof(teststruct),
             utils::hash("teststruct"),
-            "teststruct",
+            utils::type_name<teststruct>::name,
             storage.FieldCount,
             storage.Fields
         };
