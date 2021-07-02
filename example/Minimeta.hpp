@@ -73,7 +73,6 @@ namespace mmeta {
 }
 
 namespace mmeta {
-
     // ========================================================================-------
     // ======= Types
     // ========================================================================-------
@@ -100,26 +99,36 @@ namespace mmeta {
 
     class mmfield {
     public:
-        mmfield() = default;
-        mmfield(mmtype const* type, char const* name) : m_type(type), m_name(name) { }
+        constexpr mmfield(mmtype type, std::string_view name) : m_type(type), m_name(name) { }
 
-        inline mmtype const * type() const { return m_type; }
-        inline char const * name() const { return m_name; }
+        inline constexpr mmtype type() const { return m_type; }
+        inline constexpr std::string_view name() const { return m_name; }
 
     private:
-        mmtype const * m_type;
-        char const * m_name;
+        const mmtype m_type;
+        const std::string_view m_name;
     };
 
+    struct fieldseq {
+        const mmfield *Ptr;
+        size_t Size;
+        
+        constexpr fieldseq(const mmfield* first, size_t sz) : Ptr(first), Size(sz) {}
+
+        constexpr const mmfield *begin() const { return Ptr; }
+        constexpr const mmfield *end() const { return Ptr + Size; }
+        constexpr size_t size() const { return Size; }
+    };
 
     class mmclass {
     public:
         mmclass() = default;
-        mmclass(const uint32_t numFields, mmfield* fields) :
-            m_numFields(numFields), m_fields(fields) { }
+        constexpr mmclass(fieldseq fields) : m_fields(fields) { }
+
+        constexpr size_t field_count() const { return m_fields.size(); }
+
     private:
-        uint32_t m_numFields = 0;
-        mmfield* m_fields = nullptr;
+        const fieldseq m_fields;
     };
 
     template <typename T, uint32_t NumFields>
@@ -138,11 +147,7 @@ namespace mmeta {
     // ======= Type traits
     // ========================================================================-------
     template <typename T>
-    using primitive_type = std::enable_if_t<std::is_fundamental_v<T>, mmtype const *>;
-    template <typename T>
-    using user_defined_type = std::enable_if_t<!std::is_fundamental_v<T>, mmtype const *>;
-    template <typename T>
-    using class_type = std::enable_if_t<std::is_class_v<T>, mmclass const *>;
+    using class_type = std::enable_if_t<std::is_class_v<T>, mmclass>;
 
     template <typename T>
     struct is_serializable {
@@ -150,9 +155,8 @@ namespace mmeta {
     };
 
     template <typename T>
-    class_type<T> get_class_meta() {
-        static const mmclass data;
-        return &data;
+    constexpr class_type<T> get_class_meta() {
+        return { { nullptr, 0  }};
     }
 
 
@@ -171,27 +175,30 @@ namespace mmeta {
     inline constexpr mmtype typemeta_v = typemeta<T>::value;
 
     template<typename T>
-    class_type<T> classmeta_v = get_class_meta<T>();
+    struct classmeta {
+        static constexpr mmclass value = get_class_meta<T>();
+    };
+
+    template<typename T>
+    inline constexpr class_type<T> classmeta_v = classmeta<T>::value;
 
     struct teststruct {
         int a;
         char b;
     };
 
+    struct teststruct_storage {
+        static constexpr mmfield fields[] {
+            { mmeta::typemeta_v<int>, "a" },
+            { mmeta::typemeta_v<float>, "b" }
+        };
+
+        static constexpr mmeta::fieldseq seq { fields, 2 };
+    };
+
     template <>
-    class_type<teststruct> get_class_meta<teststruct> () {
-        auto ctor = [](mmclass_storage<teststruct, 2>* self) {
-            // self
-            self->Fields[0] = { &typemeta_v<int>, "a" };
-            self->Fields[1] = { &typemeta_v<char>, "c" };
-        };
-        mmclass_storage<teststruct, 2> storage {ctor};
-        
-        static mmclass data {
-            storage.FieldCount,
-            storage.Fields
-        };
-        return &data;
+    constexpr class_type<teststruct> get_class_meta<teststruct> () {
+        return { teststruct_storage::seq };
     } 
 }
 
