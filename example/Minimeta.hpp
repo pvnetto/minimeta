@@ -49,6 +49,10 @@ namespace mmeta {
                     : hash(&str[1], (value ^ uint64_t(str[0])) * kFNV1aPrime);
         }
 
+        inline constexpr uint64_t hash(std::string_view str) {
+            return hash(str.data());
+        }
+
         template <typename T>
         struct type_name {
           static constexpr std::string_view prettified_name() {
@@ -76,22 +80,21 @@ namespace mmeta {
     class mmtype {
     public:
         mmtype() = default;
-        mmtype(const uint64_t size, const uint64_t hash, std::string_view name) : 
+        constexpr mmtype(const uint64_t size, const uint64_t hash, std::string_view name) : 
             m_size(size), m_hash(hash), m_name(name) { }
 
-        inline std::string_view name() const { return m_name; }
-        inline uint64_t size() const { return m_size; }
-        inline uint64_t hash() const { return m_hash; }
+        inline constexpr std::string_view name() const { return m_name; }
+        inline constexpr uint64_t size() const { return m_size; }
+        inline constexpr uint64_t hash() const { return m_hash; }
 
         void dump() const {
-            std::cout << "info: " << name() << "\n";
-            // printf("info: name => %s, size => %lli, hash => %lli\n", std::string{ name() }.c_str(), size(), hash());
+            std::cout << "info: name => " << name() << ", size => " << size() << ", hash " << hash() << "\n";
         }
 
     private:
-        uint64_t m_size = 0;
-        uint64_t m_hash = 0;
-        std::string_view m_name = "";
+        const uint64_t m_size;
+        const uint64_t m_hash;
+        const std::string_view m_name;
     };
 
 
@@ -109,11 +112,10 @@ namespace mmeta {
     };
 
 
-    class mmclass : public mmtype {
+    class mmclass {
     public:
         mmclass() = default;
-        mmclass(const uint64_t size, const uint64_t hash, std::string_view name, uint32_t numFields, mmfield* fields) :
-            mmtype(size, hash, name),
+        mmclass(const uint32_t numFields, mmfield* fields) :
             m_numFields(numFields), m_fields(fields) { }
     private:
         uint32_t m_numFields = 0;
@@ -153,27 +155,23 @@ namespace mmeta {
         return &data;
     }
 
-    template <typename T>
-    primitive_type<T> get_type_meta() {
-        static const mmtype data { sizeof(T), utils::hash(typeid(T).name()), utils::type_name<T>::name };
-        return &data;
-    }
-
-    template <typename T>
-    user_defined_type<T> get_type_meta() {
-        return get_class_meta<T>();
-    }
-
 
     // ========================================================================-------
     // ======= Syntatic sugar
     // ========================================================================-------
     template<typename T>
-    mmtype const* typemeta_v = get_type_meta<T>();
+    struct typemeta {
+        static constexpr mmtype value = {
+            sizeof(T),
+            utils::hash(utils::type_name<T>::name),
+            utils::type_name<T>::name };
+    };
+
+    template<typename T>
+    inline constexpr mmtype typemeta_v = typemeta<T>::value;
 
     template<typename T>
     class_type<T> classmeta_v = get_class_meta<T>();
-
 
     struct teststruct {
         int a;
@@ -184,15 +182,12 @@ namespace mmeta {
     class_type<teststruct> get_class_meta<teststruct> () {
         auto ctor = [](mmclass_storage<teststruct, 2>* self) {
             // self
-            self->Fields[0] = { typemeta_v<int>, "a" };
-            self->Fields[1] = { typemeta_v<char>, "c" };
+            self->Fields[0] = { &typemeta_v<int>, "a" };
+            self->Fields[1] = { &typemeta_v<char>, "c" };
         };
         mmclass_storage<teststruct, 2> storage {ctor};
         
         static mmclass data {
-            sizeof(teststruct),
-            utils::hash("teststruct"),
-            utils::type_name<teststruct>::name,
             storage.FieldCount,
             storage.Fields
         };
