@@ -6,17 +6,13 @@
 struct Vec3;
 namespace mmeta{
   template <>
-  struct is_serializable<Vec3> {
-    static constexpr bool value = true;
-  };
+  struct is_serializable<Vec3> : std::true_type {};
 
   }
 class Player;
 namespace mmeta{
   template <>
-  struct is_serializable<Player> {
-    static constexpr bool value = true;
-  };
+  struct is_serializable<Player> : std::true_type {};
 
   }
 #endif

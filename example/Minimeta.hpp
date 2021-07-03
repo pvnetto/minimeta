@@ -7,6 +7,7 @@
 #include <typeinfo>
 
 #include <string_view>
+#include <array>
 
 
 #ifdef __MMETA__
@@ -87,7 +88,7 @@ namespace mmeta {
         inline constexpr uint64_t hash() const { return m_hash; }
 
         void dump() const {
-            std::cout << "info: name => " << name() << ", size => " << size() << ", hash " << hash() << "\n";
+            std::cout << "type: name => " << name() << ", size => " << size() << ", hash " << hash() << "\n";
         }
 
     private:
@@ -126,20 +127,17 @@ namespace mmeta {
         constexpr mmclass(fieldseq fields) : m_fields(fields) { }
 
         constexpr size_t field_count() const { return m_fields.size(); }
-
+        
+        void dump() const {
+            std::cout  << "class: num_fields => " << field_count() << "\n";
+        }
     private:
         const fieldseq m_fields;
     };
 
-    template <typename T, uint32_t NumFields>
+    template <typename T>
     struct mmclass_storage {
-        static constexpr uint32_t FieldCount = NumFields;
-        mmfield Fields[NumFields];
-
-        using ctor_lambda = void (mmclass_storage*);
-        mmclass_storage(ctor_lambda ctor) {
-            ctor(this);
-        }
+        static constexpr mmfield Fields[] {};
     };
 
     
@@ -151,18 +149,12 @@ namespace mmeta {
 
     template <typename T>
     struct is_serializable {
-        static constexpr bool value = false;
+        static constexpr bool value = std::is_fundamental_v<T>;
     };
 
-    template <typename T>
-    constexpr class_type<T> get_class_meta() {
-        return { { nullptr, 0  }};
-    }
+    template<typename T>
+    inline constexpr bool is_serializable_v = is_serializable<T>::value;
 
-
-    // ========================================================================-------
-    // ======= Syntatic sugar
-    // ========================================================================-------
     template<typename T>
     struct typemeta {
         static constexpr mmtype value = {
@@ -176,30 +168,34 @@ namespace mmeta {
 
     template<typename T>
     struct classmeta {
-        static constexpr mmclass value = get_class_meta<T>();
+        static constexpr int FieldCount() { return sizeof(mmclass_storage<T>::Fields) / sizeof(mmfield); }
+
+        static constexpr mmclass value = {
+            { mmclass_storage<T>::Fields, FieldCount()  }
+        };
     };
 
     template<typename T>
     inline constexpr class_type<T> classmeta_v = classmeta<T>::value;
 
+    struct NotSerializable { int dkajshda; };
+
     struct teststruct {
         int a;
         char b;
+        NotSerializable not;
     };
 
-    struct teststruct_storage {
-        static constexpr mmfield fields[] {
-            { mmeta::typemeta_v<int>, "a" },
-            { mmeta::typemeta_v<float>, "b" }
+    template<>
+    struct mmclass_storage<teststruct> {
+        static constexpr char* FieldAName = "a";
+
+        static constexpr mmfield Fields[] {
+            { typemeta_v<int>, "a" },
+            { typemeta_v<float>, "b" },
+            { typemeta_v<NotSerializable>, "not" },
         };
-
-        static constexpr mmeta::fieldseq seq { fields, 2 };
     };
-
-    template <>
-    constexpr class_type<teststruct> get_class_meta<teststruct> () {
-        return { teststruct_storage::seq };
-    } 
 }
 
 #include "Generated.hpp"

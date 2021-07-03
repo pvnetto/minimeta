@@ -61,9 +61,7 @@ static const std::string generatedFileHeader = R"(
 static auto GenerateIsSerializableSrc(const mmeta::TypeInfo& typeMeta) {
   return llvm::format(R"(
   template <>
-  struct is_serializable<%s> {
-    static constexpr bool value = true;
-  };
+  struct is_serializable<%s> : std::true_type {};
 
   )", typeMeta.Name.c_str());
 }

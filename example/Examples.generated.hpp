@@ -6,17 +6,13 @@
 class CustomAccessors;
 namespace mmeta{
   template <>
-  struct is_serializable<CustomAccessors> {
-    static constexpr bool value = true;
-  };
+  struct is_serializable<CustomAccessors> : std::true_type {};
 
   }
 struct MoreCustomAccessors;
 namespace mmeta{
   template <>
-  struct is_serializable<MoreCustomAccessors> {
-    static constexpr bool value = true;
-  };
+  struct is_serializable<MoreCustomAccessors> : std::true_type {};
 
   }
 #endif
