@@ -6,43 +6,46 @@
 #include <vector>
 namespace mmeta {
     template <typename T>
-    std::enable_if_t<std::is_arithmetic_v<T>, void>
-    process(const T& value) {
-        // TODO: Serialize
-    }
+    std::enable_if_t<is_serializable_v<T>, std::vector<char>>
+    serialize(T toSerialize) {
+        // Creates data vector and resizes to max possible size
+        std::vector<char> dataBuffer;
+        dataBuffer.resize(sizeof(T));
 
-    template <typename T>
-    std::enable_if_t<std::is_class_v<T>, void>
-    process(const T& value) {
-        // TODO: Serialize
-    }
-
-    template <typename T>
-    std::enable_if_t<is_serializable_v<T>, void>
-    serialize(T&& toSerialize, std::vector<unsigned char>& data) {
-        auto classMetadata = mmeta::classmeta_v<T>;
-        auto fields = classMetadata.fields();
+        char* dataPtr = &dataBuffer[0];
+        auto fields = mmeta::classmeta_v<T>.fields();
         for(auto it = fields.begin(); it != fields.end(); it++) {
-            // TODO: Serialize field binary data
-            // TODO: Get field data from value
+            memcpy(dataPtr, it->get(&toSerialize), it->type().size());
+            dataPtr += it->type().size();
         }
+
+        // Resizes vector to fit exactly all serialized data.
+        // FIXME: Optimize this so only one resize is needed
+        dataBuffer.resize(dataPtr - &dataBuffer[0]);
+        return dataBuffer;
+    }
+
+    template <typename T>
+    std::enable_if_t<is_serializable_v<T>, T>
+    deserialize(char const* dataPtr) {
+        T inst;
+
+        auto fields = mmeta::classmeta_v<T>.fields();
+        for(auto it = fields.begin(); it != fields.end(); it++) {
+            it->copy_to(dataPtr, &inst);
+        }
+
+        return inst;
     }
 }
 
 namespace mmeta {
-    template <>
-    struct mmclass_storage<Vec3> {
-        static constexpr mmfield AllFields[]{
-            {typemeta_v<float>, "X", offsetof(Vec3, X)},
-            {typemeta_v<float>, "Y", offsetof(Vec3, Y)},
-            {typemeta_v<float>, "Z", offsetof(Vec3, Z)},
-        };
-
-        static constexpr const mmfield *Fields() { return &AllFields[0]; }
-        static constexpr int FieldCount() {
-            return sizeof(AllFields) / sizeof(mmfield);
-        }
-    };
+    MMCLASS_STORAGE(
+        Vec3,
+        MMFIELD_STORAGE(Vec3, X),
+        MMFIELD_STORAGE(Vec3, Y),
+        MMFIELD_STORAGE(Vec3, Z)       
+    )
 }
 
 int main() {
@@ -65,19 +68,26 @@ int main() {
     // TODO: Filter which fields are serializable using minimeta tool
     //      - Just because a field is serializable doesn't mean it should be serialized, so array filtering wouldn't work
     // TODO: Define serializable fields at compile time from client, instead of running the tool
-    // TODO: Serialize std::string/std::vector
+    // TODO: Serialize std::string/std::vector (dynamic sized types)
 
-    Vec3 vec { 40.f, 0.1f, 0.2f };
-    auto vecMeta = mmeta::classmeta_v<Vec3>;
-    auto x = vecMeta.fields().begin();
-    auto y = x + 1;
-    auto z = y + 1;
-    
-    float metaX = x->get_as<float>(&vec);
-    printf("X => %f, X_meta => %f", vec.X, metaX);
-    // std::vector<unsigned char> data;
-    // mmeta::serialize(vec, data, options);
-    // Vec3 outVec = mmeta::deserialize(data, options);
+    std::vector<char> data;
+    {
+        Vec3 vec { 4.f, 0.1f, 0.2f };
+        data = mmeta::serialize(vec/*, mode, options*/);
+    }
+
+    // auto x = mmeta::classmeta_v<Vec3>.fields().begin();
+    // auto y = x + 1;
+    // auto z = y + 1;
+
+    // float metaX = x->get_as<float>(&data[0]);
+    // float metaY = y->get_as<float>(&data[0]);
+    // float metaZ = z->get_as<float>(&data[0]);
+
+    Vec3 metaVec = mmeta::deserialize<Vec3>(&data[0]/*, mode, options*/);
+    printf("X => %f\n", metaVec.X);
+    printf("Y => %f\n", metaVec.Y);
+    printf("Z => %f\n", metaVec.Z);
 
     return 0;
 }

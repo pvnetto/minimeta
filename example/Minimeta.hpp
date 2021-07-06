@@ -106,12 +106,20 @@ namespace mmeta {
         inline constexpr mmtype type() const { return m_type; }
         inline constexpr std::string_view name() const { return m_name; }
 
+        void const * get(void const* src) const {
+            return static_cast<void const *>((char*) src + m_offset);
+        }
+
         template <typename T>
         T get_as(void const * src) const {
             assert(typemeta_v<T>.hash() == m_type.hash() && ">> ERROR: Trying to get field using wrong type.");
             T inst;
-            memcpy(&inst, (char *)src + m_offset, sizeof(T));
+            memcpy(&inst, (char *)src + m_offset, m_type.size());
             return inst;
+        }
+
+        void copy_to(void const* src, void* dst) const {
+            memcpy((char*)dst + m_offset, (char*) src + m_offset, m_type.size());
         }
 
     private:
@@ -197,17 +205,26 @@ namespace mmeta {
         NotSerializable not;
     };
 
-    template<>
-    struct mmclass_storage<teststruct> {
-        static constexpr mmfield AllFields[] {
-            { typemeta_v<int>,              "a",     offsetof(teststruct, a) },
-            { typemeta_v<float>,            "b",     offsetof(teststruct, b) },
-            { typemeta_v<NotSerializable>,  "not",   offsetof(teststruct, not) },
-        };
 
-        static constexpr const mmfield* Fields() { return &AllFields[0]; }
-        static constexpr int FieldCount() { return sizeof(AllFields) / sizeof(mmfield); }
-    };
+#define MMCLASS_STORAGE(type_name, ...) \
+template <> \
+struct mmclass_storage<type_name> { \
+    static constexpr mmfield AllFields[]{ __VA_ARGS__ }; \
+\
+    static constexpr const mmfield *Fields() { return &AllFields[0]; } \
+    static constexpr int FieldCount() { \
+        return sizeof(AllFields) / sizeof(mmfield); \
+    } \
+};
+
+#define MMFIELD_STORAGE(type_name, field) { typemeta_v<decltype(type_name::##field)>, #field, offsetof(type_name, field) }
+
+    MMCLASS_STORAGE(
+        teststruct,
+        MMFIELD_STORAGE(teststruct, a),
+        MMFIELD_STORAGE(teststruct, b),
+        MMFIELD_STORAGE(teststruct, not),
+    )
 }
 
 #include "Generated.hpp"
