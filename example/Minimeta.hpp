@@ -5,9 +5,9 @@
 #include <stdint.h>
 #include <type_traits>
 #include <typeinfo>
+#include <cassert>
 
 #include <string_view>
-#include <array>
 
 
 #ifdef __MMETA__
@@ -100,14 +100,24 @@ namespace mmeta {
 
     class mmfield {
     public:
-        constexpr mmfield(mmtype type, std::string_view name) : m_type(type), m_name(name) { }
+        mmfield() = default;
+        constexpr mmfield(mmtype type, std::string_view name, size_t offset) : m_type(type), m_name(name), m_offset(offset) { }
 
         inline constexpr mmtype type() const { return m_type; }
         inline constexpr std::string_view name() const { return m_name; }
 
+        template <typename T>
+        T get_as(void const * src) const {
+            assert(typemeta_v<T>.hash() == m_type.hash() && ">> ERROR: Trying to get field using wrong type.");
+            T inst;
+            memcpy(&inst, (char *)src + m_offset, sizeof(T));
+            return inst;
+        }
+
     private:
         const mmtype m_type;
         const std::string_view m_name;
+        const size_t m_offset;
     };
 
     struct fieldseq {
@@ -127,6 +137,8 @@ namespace mmeta {
         constexpr mmclass(fieldseq fields) : m_fields(fields) { }
 
         constexpr size_t field_count() const { return m_fields.size(); }
+
+        constexpr fieldseq fields() const { return m_fields; }
         
         void dump() const {
             std::cout  << "class: num_fields => " << field_count() << "\n";
@@ -137,7 +149,8 @@ namespace mmeta {
 
     template <typename T>
     struct mmclass_storage {
-        static constexpr mmfield Fields[] {};
+        static constexpr mmfield* Fields() { return nullptr; }
+        static constexpr int FieldCount() { return 0; }
     };
 
     
@@ -168,10 +181,8 @@ namespace mmeta {
 
     template<typename T>
     struct classmeta {
-        static constexpr int FieldCount() { return sizeof(mmclass_storage<T>::Fields) / sizeof(mmfield); }
-
         static constexpr mmclass value = {
-            { mmclass_storage<T>::Fields, FieldCount()  }
+            { mmclass_storage<T>::Fields(), mmclass_storage<T>::FieldCount()  }
         };
     };
 
@@ -188,13 +199,14 @@ namespace mmeta {
 
     template<>
     struct mmclass_storage<teststruct> {
-        static constexpr char* FieldAName = "a";
-
-        static constexpr mmfield Fields[] {
-            { typemeta_v<int>, "a" },
-            { typemeta_v<float>, "b" },
-            { typemeta_v<NotSerializable>, "not" },
+        static constexpr mmfield AllFields[] {
+            { typemeta_v<int>,              "a",     offsetof(teststruct, a) },
+            { typemeta_v<float>,            "b",     offsetof(teststruct, b) },
+            { typemeta_v<NotSerializable>,  "not",   offsetof(teststruct, not) },
         };
+
+        static constexpr const mmfield* Fields() { return &AllFields[0]; }
+        static constexpr int FieldCount() { return sizeof(AllFields) / sizeof(mmfield); }
     };
 }
 
