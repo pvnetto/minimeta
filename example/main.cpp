@@ -14,9 +14,10 @@ namespace mmeta {
 
         char* dataPtr = &dataBuffer[0];
         auto fields = mmeta::classmeta_v<T>.fields();
-        for(auto it = fields.begin(); it != fields.end(); it++) {
-            memcpy(dataPtr, it->get(&toSerialize), it->type().size());
-            dataPtr += it->type().size();
+        for(const mmfield* field = fields.begin(); field != fields.end(); field++) {
+            // TODO: Assert if field is serializable
+            memcpy(dataPtr, field->get(&toSerialize), field->type().size());
+            dataPtr += field->type().size();
         }
 
         // Resizes vector to fit exactly all serialized data.
@@ -27,12 +28,14 @@ namespace mmeta {
 
     template <typename T>
     std::enable_if_t<is_serializable_v<T>, T>
-    deserialize(char const* dataPtr) {
+    deserialize(char * dataBegin) {
         T inst;
 
+        char* dataPtr = dataBegin;
         auto fields = mmeta::classmeta_v<T>.fields();
         for(auto it = fields.begin(); it != fields.end(); it++) {
             it->copy_to(dataPtr, &inst);
+            dataPtr += it->type().size();
         }
 
         return inst;
@@ -62,9 +65,6 @@ int main() {
     static_assert(mmeta::typemeta_v<int>.name() == "int", "Type should be int");
     static_assert(mmeta::classmeta_v<mmeta::teststruct>.field_count() == 3, "teststruct has wrong number of fields.");
 
-    // TODO: Add serializer/deserializer methods
-    //      - SOLUTION: Test other serialization tools to see how they work
-    //      - Validate which fields are serializable with assert
     // TODO: Filter which fields are serializable using minimeta tool
     //      - Just because a field is serializable doesn't mean it should be serialized, so array filtering wouldn't work
     // TODO: Define serializable fields at compile time from client, instead of running the tool
@@ -78,11 +78,15 @@ int main() {
 
     // auto x = mmeta::classmeta_v<Vec3>.fields().begin();
     // auto y = x + 1;
-    // auto z = y + 1;
+    // auto z = x + 2;
 
     // float metaX = x->get_as<float>(&data[0]);
     // float metaY = y->get_as<float>(&data[0]);
     // float metaZ = z->get_as<float>(&data[0]);
+
+    // printf("X => %f\n", metaX);
+    // printf("Y => %f\n", metaY);
+    // printf("Z => %f\n\n", metaZ);
 
     Vec3 metaVec = mmeta::deserialize<Vec3>(&data[0]/*, mode, options*/);
     printf("X => %f\n", metaVec.X);

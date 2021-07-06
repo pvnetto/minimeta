@@ -107,7 +107,7 @@ namespace mmeta {
         inline constexpr std::string_view name() const { return m_name; }
 
         void const * get(void const* src) const {
-            return static_cast<void const *>((char*) src + m_offset);
+            return (void const *)((char*) src + m_offset);
         }
 
         template <typename T>
@@ -119,7 +119,7 @@ namespace mmeta {
         }
 
         void copy_to(void const* src, void* dst) const {
-            memcpy((char*)dst + m_offset, (char*) src + m_offset, m_type.size());
+            memcpy((char*)dst + m_offset, (char*) src, m_type.size());
         }
 
     private:

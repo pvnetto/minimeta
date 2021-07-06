@@ -3,7 +3,7 @@
 #include "Minimeta.hpp"
 
 struct SERIALIZABLE Vec3 {
-    float X, Y, Z;
+    float X = 0.f, Y = 0.f, Z = 0.f;
 };
 
 class SERIALIZABLE Player {
