@@ -26,6 +26,7 @@
 
 # Nested build directory
 /example/out/build
+/example/build
 /out/build
 /build*
 
