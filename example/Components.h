@@ -3,17 +3,48 @@
 #include "Minimeta.hpp"
 
 struct SERIALIZABLE Vec3 {
-    float X = 0.f, Y = 0.f, Z = 0.f;
+    float X = 0.f;
+    float INTERNAL Y = 0.f;
+    float Z = 0.f;
+
+    void Dump() {
+        printf("X => %f, Y => %f, Z => %f\n", X, Y, Z);
+    }
+
+    META_OBJECT
+};
+
+struct PlayerState {
+    int State = 10;
+    float Points = 300.f;
 };
 
 class SERIALIZABLE Player {
 public:
-    Vec3 m_position;
+    int m_id = 0;
+    PlayerState m_state;
+
+    void SetPosition(Vec3 position) { m_position = position; }
+    void SetName(const std::string& name) { m_name = name; }
+
+    void Dump() {
+        printf("ID => %i, Name => %s, X => %f, Y => %f, Z => %f\n",
+            m_id, m_name.c_str(), m_position.X, m_position.Y, m_position.Z);
+    }
 
 private:
-    const char* name = "Paiva";
+    std::string m_name = "Default";
+    Vec3 SERIALIZE m_position { 1.f, 2.f, 3.f };
+
+    META_OBJECT
 };
 
+struct SERIALIZABLE Transform {
+    Vec3 Position { 0.f, 0.f, 0.f };
+    float Rotation = 0.f;
+
+    META_OBJECT
+};
 
 class Foo {
 public:
@@ -21,3 +52,5 @@ public:
 
     void Bar();
 };
+
+#include "Components.generated.hpp"

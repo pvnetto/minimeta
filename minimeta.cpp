@@ -4,6 +4,9 @@
 #include "clang/Tooling/Tooling.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormatVariadic.h"
+
+#include "llvm/Support/raw_ostream.h"
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
@@ -70,6 +73,19 @@ static auto GenerateForwardDeclSrc(const mmeta::TypeInfo& typeMeta) {
   return llvm::format("%s %s;\n", typeMeta.Type.c_str(), typeMeta.Name.c_str());
 }
 
+static auto GenerateStorageSrc(const mmeta::TypeInfo& typeMeta) {
+  std::string fields = "";
+  llvm::raw_string_ostream output { fields };
+
+  output << llvm::formatv("MMCLASS_STORAGE({0},", typeMeta.Name.c_str());
+  for(const auto& field : typeMeta.Fields) {
+    output << llvm::formatv("MMFIELD_STORAGE({0}),", field.Name.c_str()).str();
+  }
+  output << ")";
+  
+  return output.str();
+}
+
 void GenerateTypeMetadataSource(std::vector<mmeta::TypeInfo> &types) {
   // TODO: Sort types by their filenames
   // TODO: Generate a separate file for each different FileName
@@ -93,6 +109,7 @@ void GenerateTypeMetadataSource(std::vector<mmeta::TypeInfo> &types) {
       outputStream << "namespace mmeta";
       outputStream << "{";
       outputStream << GenerateIsSerializableSrc(typeMeta);
+      outputStream << GenerateStorageSrc(typeMeta);
       outputStream << "}\n";
     }
     outputStream << "#endif";

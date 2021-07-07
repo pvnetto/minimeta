@@ -8,18 +8,26 @@
 #include <cassert>
 
 #include <string_view>
+#include <vector>
 
 
 #ifdef __MMETA__
 #define SERIALIZABLE __attribute__((annotate("mm-type")))
 #define SERIALIZE __attribute__((annotate("mm-add")))
 #define INTERNAL __attribute__((annotate("mm-ignore")))
+#define META_OBJECT 
+
+#define static_assert(x, ...)
 #else
 #define SERIALIZABLE
 #define SERIALIZE
 #define INTERNAL
+#define META_OBJECT \
+    template <typename T> friend struct mmeta::mmclass_storage;
 #endif
 
+// FIXME: Add preffix/suffix for clang and gcc
+// FIXME: Test if it works on clang/gcc
 // based on: https://github.com/Manu343726/ctti/blob/master/include/ctti/detail/pretty_function.hpp
 #if defined(__clang__)
     #define MMETA_PRETTY_FUNCTION __PRETTY_FUNCTION__
@@ -79,13 +87,13 @@ namespace mmeta {
     // ========================================================================-------
     class mmtype {
     public:
-        mmtype() = default;
-        constexpr mmtype(const uint64_t size, const uint64_t hash, std::string_view name) : 
-            m_size(size), m_hash(hash), m_name(name) { }
+        constexpr mmtype(const uint64_t size, const uint64_t hash, std::string_view name, const bool serializable) : 
+            m_size(size), m_hash(hash), m_name(name), m_serializable(serializable) { }
 
         inline constexpr std::string_view name() const { return m_name; }
         inline constexpr uint64_t size() const { return m_size; }
         inline constexpr uint64_t hash() const { return m_hash; }
+        inline constexpr bool is_serializable() const { return m_serializable; }
 
         void dump() const {
             std::cout << "type: name => " << name() << ", size => " << size() << ", hash " << hash() << "\n";
@@ -95,12 +103,12 @@ namespace mmeta {
         const uint64_t m_size;
         const uint64_t m_hash;
         const std::string_view m_name;
+        const bool m_serializable;
     };
 
 
     class mmfield {
     public:
-        mmfield() = default;
         constexpr mmfield(mmtype type, std::string_view name, size_t offset) : m_type(type), m_name(name), m_offset(offset) { }
 
         inline constexpr mmtype type() const { return m_type; }
@@ -141,7 +149,6 @@ namespace mmeta {
 
     class mmclass {
     public:
-        mmclass() = default;
         constexpr mmclass(fieldseq fields) : m_fields(fields) { }
 
         constexpr size_t field_count() const { return m_fields.size(); }
@@ -168,10 +175,30 @@ namespace mmeta {
     template <typename T>
     using class_type = std::enable_if_t<std::is_class_v<T>, mmclass>;
 
+    using binary_buffer_type = char;
+    using binary_buffer = std::vector<binary_buffer_type>;
+
+    template <typename, class = void>
+    struct is_defined : std::false_type {};
+    
+    template <typename T>
+    struct is_defined<T,
+        std::enable_if_t<std::is_object<T>::value &&
+                        !std::is_pointer<T>::value &&
+                        (sizeof(T) > 0)
+        >
+    > : std::true_type { };
+
+#ifdef __MMETA__
+    template <typename T>
+    struct is_serializable : std::true_type {};
+#else
     template <typename T>
     struct is_serializable {
+        static_assert(is_defined<T>::value && "is_serializable isn't really useful with forward declared types.");
         static constexpr bool value = std::is_fundamental_v<T>;
     };
+#endif
 
     template<typename T>
     inline constexpr bool is_serializable_v = is_serializable<T>::value;
@@ -181,7 +208,8 @@ namespace mmeta {
         static constexpr mmtype value = {
             sizeof(T),
             utils::hash(utils::type_name<T>::name),
-            utils::type_name<T>::name };
+            utils::type_name<T>::name,
+            is_serializable_v<T> };
     };
 
     template<typename T>
@@ -197,18 +225,15 @@ namespace mmeta {
     template<typename T>
     inline constexpr class_type<T> classmeta_v = classmeta<T>::value;
 
-    struct NotSerializable { int dkajshda; };
+    // ========================================================================-------
+    // ======= Macro dark-magic
+    // ========================================================================-------
 
-    struct teststruct {
-        int a;
-        char b;
-        NotSerializable not;
-    };
-
-
+#ifndef __MMETA__
 #define MMCLASS_STORAGE(type_name, ...) \
 template <> \
 struct mmclass_storage<type_name> { \
+    using strg_type = type_name; \
     static constexpr mmfield AllFields[]{ __VA_ARGS__ }; \
 \
     static constexpr const mmfield *Fields() { return &AllFields[0]; } \
@@ -217,14 +242,26 @@ struct mmclass_storage<type_name> { \
     } \
 };
 
-#define MMFIELD_STORAGE(type_name, field) { typemeta_v<decltype(type_name::##field)>, #field, offsetof(type_name, field) }
+#define MMFIELD_STORAGE(field, ...) { typemeta_v<decltype(strg_type::##field)>, #field, offsetof(strg_type, field) }
+#else
+#define MMCLASS_STORAGE(x, ...)
+#define MMFIELD_STORAGE(x, ...)
+#endif
+
+    struct notserializable {
+        int dkajshda;
+    };
+
+    struct teststruct {
+        int A;
+        char B;
+        notserializable Not;
+    };
 
     MMCLASS_STORAGE(
         teststruct,
-        MMFIELD_STORAGE(teststruct, a),
-        MMFIELD_STORAGE(teststruct, b),
-        MMFIELD_STORAGE(teststruct, not),
+        MMFIELD_STORAGE(A),
+        MMFIELD_STORAGE(B),
+        MMFIELD_STORAGE(Not)
     )
 }
-
-#include "Generated.hpp"

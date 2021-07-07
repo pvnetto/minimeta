@@ -8,11 +8,11 @@ namespace mmeta{
   template <>
   struct is_serializable<CustomAccessors> : std::true_type {};
 
-  }
+  MMCLASS_STORAGE(CustomAccessors,MMFIELD_STORAGE(show),MMFIELD_STORAGE(showPrivate),)}
 struct MoreCustomAccessors;
 namespace mmeta{
   template <>
   struct is_serializable<MoreCustomAccessors> : std::true_type {};
 
-  }
+  MMCLASS_STORAGE(MoreCustomAccessors,MMFIELD_STORAGE(Show),)}
 #endif
