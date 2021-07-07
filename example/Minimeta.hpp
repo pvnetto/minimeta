@@ -45,6 +45,8 @@
     #error "No support for this compiler."
 #endif
 
+#define BIT(x) (1 << x)
+
 namespace mmeta {
     namespace utils {
         // hash is based on: https://github.com/Leandros/metareflect
@@ -82,18 +84,25 @@ namespace mmeta {
 }
 
 namespace mmeta {
+    using binary_buffer_type = char;
+    using binary_buffer = std::vector<binary_buffer_type>;
+
     // ========================================================================-------
     // ======= Types
     // ========================================================================-------
+    class mmfield;
+    using WriteFunc = void(*)(const mmfield*, void const *, binary_buffer_type*&);
+
     class mmtype {
     public:
-        constexpr mmtype(const uint64_t size, const uint64_t hash, std::string_view name, const bool serializable) : 
-            m_size(size), m_hash(hash), m_name(name), m_serializable(serializable) { }
+        constexpr mmtype(const uint64_t size, const uint64_t hash, std::string_view name, bool serializable, const WriteFunc func) : 
+            m_size(size), m_hash(hash), m_name(name), m_serializable(serializable), m_write(func) { }
 
         inline constexpr std::string_view name() const { return m_name; }
         inline constexpr uint64_t size() const { return m_size; }
         inline constexpr uint64_t hash() const { return m_hash; }
         inline constexpr bool is_serializable() const { return m_serializable; }
+        inline void write(const mmfield* ref, void const *src, binary_buffer_type*& dst) const { m_write(ref, src, dst); }
 
         void dump() const {
             std::cout << "type: name => " << name() << ", size => " << size() << ", hash " << hash() << "\n";
@@ -104,8 +113,8 @@ namespace mmeta {
         const uint64_t m_hash;
         const std::string_view m_name;
         const bool m_serializable;
+        const WriteFunc m_write;
     };
-
 
     class mmfield {
     public:
@@ -114,8 +123,8 @@ namespace mmeta {
         inline constexpr mmtype type() const { return m_type; }
         inline constexpr std::string_view name() const { return m_name; }
 
-        void const * get(void const* src) const {
-            return (void const *)((char*) src + m_offset);
+        void const * get_pointer_from(void const* src) const {
+            return (void const *) ((char*) src + m_offset);
         }
 
         template <typename T>
@@ -175,8 +184,23 @@ namespace mmeta {
     template <typename T>
     using class_type = std::enable_if_t<std::is_class_v<T>, mmclass>;
 
-    using binary_buffer_type = char;
-    using binary_buffer = std::vector<binary_buffer_type>;
+    template<class T>
+    struct is_vector : std::false_type { };
+
+    template<typename T>
+    struct is_vector<std::vector<T>> : std::true_type {};
+
+    template<typename T>
+    inline constexpr bool is_vector_v = is_vector<T>::value;
+
+    template<class T>
+    struct is_string : std::false_type { };
+
+    template<>
+    struct is_string<std::string> : std::true_type {};
+
+    template<typename T>
+    inline constexpr bool is_string_v = is_string<T>::value;
 
     template <typename, class = void>
     struct is_defined : std::false_type {};
@@ -198,10 +222,69 @@ namespace mmeta {
         static_assert(is_defined<T>::value && "is_serializable isn't really useful with forward declared types.");
         static constexpr bool value = std::is_fundamental_v<T>;
     };
+
+    // template <typename T>
+    // struct is_serializable<std::vector<T>> : std::true_type {
+    //     template <typename B>
+    //     static constexpr bool is_vector_of_serializable() {
+    //         if constexpr (is_vector<B>::value) {
+    //             return is_vector_of_serializable<typename B::value_type>();
+    //         }
+    //         return is_serializable_v<B>;
+    //     }
+
+    //     static constexpr bool value = is_vector_of_serializable<T>();
+    // };
 #endif
 
     template<typename T>
     inline constexpr bool is_serializable_v = is_serializable<T>::value;
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>, void>
+    write(const mmfield* self, void const *src, binary_buffer_type*& dst) { }
+
+    template <typename T>
+    std::enable_if_t<is_serializable_v<T>, void>
+    write(const mmfield* self, void const *src, binary_buffer_type*& dst) { write_serializable<T>(self, src, dst); }
+
+    template <typename T>
+    std::enable_if_t<std::is_fundamental_v<T>, void>
+    write_serializable(const mmfield* self, void const *primitiveBeginPtr, binary_buffer_type*& dst) {
+        const size_t fieldSize = self->type().size();
+        memcpy(dst, primitiveBeginPtr, fieldSize);
+        dst += fieldSize;
+    }
+
+    template <typename T>
+    std::enable_if_t<std::is_class_v<T>, void>
+    write_serializable(const mmfield* self, void const *classBeginPtr, binary_buffer_type*& dst) {
+        // Serializes all child fields, SFINAE will guarantee that non-serializable fields are not included
+        auto fields = mmeta::classmeta_v<T>.fields();
+        for(const mmfield* childField = fields.begin(); childField != fields.end(); childField++) {
+            // Gets pointer to start of child field and writes it
+            childField->type().write(childField, childField->get_pointer_from(classBeginPtr), dst);
+        }
+    }
+
+    template <typename T>
+    std::enable_if_t<is_vector_v<T>, void>
+    write_serializable(const mmfield* parentField, void const *src, binary_buffer_type*& dst) {
+    }
+
+    // Example:
+    // Foo
+    //      float c
+    //      char d
+    //      Bar a
+    //          int a, int b
+
+    // Process(Foo)
+    //      Process(c) => Gets c from Foo, writes to memory
+    //      Process(d) => Gets d from Foo, writes to memory
+    //      Process(Bar) => Gets Bar from Foo (src)
+    //              Process(a) => Gets a from Bar (src), writes to memory (dst)
+    //              Process(b) => Gets b from bar (src), writes to memory
 
     template<typename T>
     struct typemeta {
@@ -209,7 +292,8 @@ namespace mmeta {
             sizeof(T),
             utils::hash(utils::type_name<T>::name),
             utils::type_name<T>::name,
-            is_serializable_v<T> };
+            is_serializable_v<T>,
+            &write<T> };
     };
 
     template<typename T>
@@ -225,8 +309,13 @@ namespace mmeta {
     template<typename T>
     inline constexpr class_type<T> classmeta_v = classmeta<T>::value;
 
+
     // ========================================================================-------
-    // ======= Macro dark-magic
+    // ======= Serialization
+    // ========================================================================-------
+
+    // ========================================================================-------
+    // ======= Macro Dark-Magic
     // ========================================================================-------
 
 #ifndef __MMETA__

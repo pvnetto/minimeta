@@ -46,11 +46,4 @@ struct SERIALIZABLE Transform {
     META_OBJECT
 };
 
-class Foo {
-public:
-    int a;
-
-    void Bar();
-};
-
 #include "Components.generated.hpp"
