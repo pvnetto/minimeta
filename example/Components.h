@@ -25,7 +25,7 @@ public:
     PlayerState m_state;
 
     void SetPosition(Vec3 position) { m_position = position; }
-    void SetName(const std::string& name) { m_name = name; }
+    void SetName(const std::string& name) { }
 
     void Dump() {
         printf("ID => %i, Name => %s, X => %f, Y => %f, Z => %f\n",
@@ -34,7 +34,7 @@ public:
 
 private:
     std::string m_name = "Default";
-    Vec3 SERIALIZE m_position { 1.f, 2.f, 3.f };
+    Vec3 SERIALIZE m_position { 0.f, 0.f, 0.f };
 
     META_OBJECT
 };
