@@ -8,20 +8,17 @@ namespace mmeta{
   template <>
   struct is_serializable<Vec3> : std::true_type {};
 
-  MMHASHEDTYPE_DEF(Vec3)
-MMCLASS_STORAGE(Vec3,MMFIELD_STORAGE(X),MMFIELD_STORAGE(Y),MMFIELD_STORAGE(Z),)}
+  MMCLASS_STORAGE(Vec3,MMFIELD_STORAGE(X),MMFIELD_STORAGE(Y),MMFIELD_STORAGE(Z),)}
 class Player;
 namespace mmeta{
   template <>
   struct is_serializable<Player> : std::true_type {};
 
-  MMHASHEDTYPE_DEF(Player)
-MMCLASS_STORAGE(Player,MMFIELD_STORAGE(m_id),MMFIELD_STORAGE(m_state),MMFIELD_STORAGE(m_position),)}
+  MMCLASS_STORAGE(Player,MMFIELD_STORAGE(m_id),MMFIELD_STORAGE(m_state),MMFIELD_STORAGE(m_position),)}
 struct Transform;
 namespace mmeta{
   template <>
   struct is_serializable<Transform> : std::true_type {};
 
-  MMHASHEDTYPE_DEF(Transform)
-MMCLASS_STORAGE(Transform,MMFIELD_STORAGE(Position),MMFIELD_STORAGE(Rotation),)}
+  MMCLASS_STORAGE(Transform,MMFIELD_STORAGE(Position),MMFIELD_STORAGE(Rotation),)}
 #endif

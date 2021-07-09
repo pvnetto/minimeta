@@ -95,13 +95,13 @@ namespace mmeta {
 
     class mmtype {
     public:
-        constexpr mmtype(const uint64_t size, const uint64_t hash, std::string_view name) : 
+        constexpr mmtype(const size_t size, const uint64_t hash, std::string_view name) : 
             m_size(size),
             m_hash(hash),
             m_name(name) { }
 
         inline constexpr std::string_view name() const { return m_name; }
-        inline constexpr uint64_t size() const { return m_size; }
+        inline constexpr size_t size() const { return m_size; }
         inline constexpr uint64_t hash() const { return m_hash; }
 
         void dump() const {
@@ -109,7 +109,7 @@ namespace mmeta {
         }
 
     private:
-        const uint64_t m_size;
+        const size_t m_size;
         const uint64_t m_hash;
         const std::string_view m_name;
     };
@@ -292,8 +292,8 @@ namespace mmeta {
     template <typename T>
     std::enable_if_t<std::is_fundamental_v<T>, void>
     write_serializable(const mmfield* self, const void *from, binary_buffer_type*& to) {
-        const uint64_t fieldSize = self->type().size();
-        memcpy(to, from, (size_t) fieldSize);
+        const size_t fieldSize = self->type().size();
+        std::memcpy(to, from, fieldSize);
         to += fieldSize;
     }
 
@@ -346,8 +346,8 @@ namespace mmeta {
     template <typename P>
     std::enable_if_t<std::is_fundamental_v<P>, void>
     read_serializable(const mmfield* fieldMeta, const binary_buffer_type*& from, void *to) {
-        const uint64_t fieldSize = fieldMeta->type().size();
-        memcpy(to, from, (size_t) fieldSize);
+        const size_t fieldSize = fieldMeta->type().size();
+        std::memcpy(to, from, fieldSize);
         from += fieldSize;
     }
 
@@ -408,7 +408,10 @@ namespace mmeta {
     // ========================================================================-------
 
 #ifndef __MMETA__
+#define MMHASHEDTYPE_DEF(t) template <> struct hashed_type<::mmeta::typemeta_v<t>.hash()> { typedef t value_type; };
+
 #define MMCLASS_STORAGE(type_name, ...) \
+MMHASHEDTYPE_DEF(type_name)\
 template <> \
 struct mmclass_storage<type_name> { \
     using strg_type = type_name; \
@@ -422,15 +425,16 @@ struct mmclass_storage<type_name> { \
 
 #define MMFIELD_STORAGE(field, ...) { typemeta_v<decltype(strg_type::##field)>, #field, offsetof(strg_type, field) }
 #else
+#define MMHASHEDTYPE_DEF(t)
 #define MMCLASS_STORAGE(x, ...)
 #define MMFIELD_STORAGE(x, ...)
 #endif
 
-#define MMHASHEDTYPE_DEF(t) template <> struct hashed_type<::mmeta::typemeta_v<t>.hash()> { typedef t value_type; };
-
 // FIXME: Define a extensive list with all primitive types or find a smarter way to do so
 MMHASHEDTYPE_DEF(int)
+MMHASHEDTYPE_DEF(unsigned int)
 MMHASHEDTYPE_DEF(char)
+MMHASHEDTYPE_DEF(unsigned char)
 MMHASHEDTYPE_DEF(float)
 MMHASHEDTYPE_DEF(double)
 }
