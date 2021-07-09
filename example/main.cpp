@@ -17,7 +17,6 @@ int main() {
     mmeta::typemeta_v<int>.dump();
     mmeta::typemeta_v<float>.dump();
     mmeta::typemeta_v<Vec3>.dump();
-    mmeta::classmeta_v<mmeta::teststruct>.dump();
 
     static_assert(mmeta::typemeta_v<int>.name() == "int" && "Type should be int");
     static_assert(mmeta::is_serializable_v<float> && "Primitive types should all be serializable");
@@ -29,7 +28,7 @@ int main() {
     // TODO: Serialize std::string/std::vector (dynamic sized types)
     // TODO: Add serializer versioning
     //      - Check how cista does it
-    // TODO: Fix all fixmes;
+    // TODO: Fix all fixmes
 
     mmeta::binary_buffer playerData;
     {
