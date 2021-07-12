@@ -14,7 +14,7 @@ namespace mmeta{
   template <>
   struct is_serializable<Player> : std::true_type {};
 
-  MMCLASS_STORAGE(Player,MMFIELD_STORAGE(m_id),MMFIELD_STORAGE(m_state),MMFIELD_STORAGE(m_integers),MMFIELD_STORAGE(m_nested),MMFIELD_STORAGE(m_position),)}
+  MMCLASS_STORAGE(Player,MMFIELD_STORAGE(m_id),MMFIELD_STORAGE(m_state),MMFIELD_STORAGE(m_integers),MMFIELD_STORAGE(m_nested),MMFIELD_STORAGE(m_position),MMFIELD_STORAGE(m_name),)}
 struct Transform;
 namespace mmeta{
   template <>

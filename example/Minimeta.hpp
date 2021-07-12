@@ -211,8 +211,13 @@ namespace mmeta {
         static constexpr bool value = std::is_same_v<T, hashed_type_t<utils::hash(utils::type_name<T>::name)>>;
     };
 
+#ifdef __MMETA__
+    template <typename T>
+    inline constexpr bool is_hashed_type_v = std::is_class_v<T>;
+#else
     template <typename T>
     inline constexpr bool is_hashed_type_v = is_hashed_type<T>::value;
+#endif
 
     template <typename T>
     using class_type = std::enable_if_t<is_hashed_type_v<T>, mmclass>;
@@ -239,14 +244,8 @@ namespace mmeta {
     template<typename T>
     inline constexpr bool is_vector_v = is_vector<T>::value;
 
-    template<class T>
-    struct is_string : std::false_type { };
-
-    template<>
-    struct is_string<std::string> : std::true_type {};
-
     template<typename T>
-    inline constexpr bool is_string_v = is_string<T>::value;
+    inline constexpr bool is_string_v = std::is_same_v<T, std::string>;
 
     template <typename, class = void>
     struct is_defined : std::false_type {};
@@ -276,6 +275,9 @@ namespace mmeta {
     struct is_serializable<std::vector<T>> {
         static constexpr bool value = is_serializable_v<T>;
     };
+
+    template <>
+    struct is_serializable<std::string> : std::true_type {};
 #endif
 
     template<typename T>
@@ -327,20 +329,23 @@ namespace mmeta {
 
     // Serializes class types
     template <typename C>
-    std::enable_if_t<is_hashed_type_v<C> && !is_vector_v<C>, void>
+    std::enable_if_t<is_hashed_type_v<C>, void>
     write_serializable(const mmfield* container, const void *from, binary_buffer_write& to) {
         each_field<C, field_write_wrapper>(container, from, to);
     }
 
-    // Serializes vector types
-    template <typename T>
-    std::enable_if_t<is_vector_v<T>, void>
+    // Serializes std dynamic types
+    template <typename D>
+    std::enable_if_t<is_vector_v<D> || is_string_v<D>, void>
     write_serializable(const mmfield* container, const void *from, binary_buffer_write& to) {
-        const T* value = reinterpret_cast<const T*>(from);
-        typename T::size_type elementCount = value->size();
-        write<typename T::size_type>(container, &elementCount, to);
+        using arr_size_type = typename D::size_type;
+        using arr_value_type = typename D::value_type;
+
+        const D* value = reinterpret_cast<const D*>(from);
+        arr_size_type elementCount = value->size();
+        write<arr_size_type>(container, &elementCount, to);
         for(size_t i = 0; i < elementCount; i++) {
-            write<typename T::value_type>(container, (value->data() + i), to);
+            write<arr_value_type>(container, (value->data() + i), to);
         }
     }
 
@@ -381,18 +386,18 @@ namespace mmeta {
         each_field<C, read_field_wrapper>(fieldMeta, from, to);
     }
 
-    template <typename V>
-    std::enable_if_t<is_vector_v<V>, void>
+    template <typename D>
+    std::enable_if_t<is_vector_v<D> || is_string_v<D>, void>
     read_serializable(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
-        using vec_size_type = typename V::size_type;
-        using vec_value_type = typename V::value_type;
-        vec_size_type size = 0;
-        read<vec_size_type>(fieldMeta, from, &size);
+        using arr_size_type = typename D::size_type;
+        using arr_value_type = typename D::value_type;
+        arr_size_type size = 0;
+        read<arr_size_type>(fieldMeta, from, &size);
 
-        V* value = reinterpret_cast<V*>(to);
+        D* value = reinterpret_cast<D*>(to);
         value->resize(size);
-        for(vec_size_type i = 0; i < size; i++) {
-            read<vec_value_type>(fieldMeta, from, value->data() + i);
+        for(arr_size_type i = 0; i < size; i++) {
+            read<arr_value_type>(fieldMeta, from, value->data() + i);
         }
     }
 

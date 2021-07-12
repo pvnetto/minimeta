@@ -27,7 +27,7 @@ public:
     std::vector<std::vector<float>> m_nested;
 
     void SetPosition(Vec3 position) { m_position = position; }
-    void SetName(const std::string& name) { }
+    void SetName(const std::string& name) { m_name = name; }
 
     void Dump() {
         printf("ID => %i, Name => %s, X => %f, Y => %f, Z => %f\n",
@@ -35,8 +35,8 @@ public:
     }
 
 private:
-    std::string m_name = "Default";
     Vec3 SERIALIZE m_position { 0.f, 0.f, 0.f };
+    std::string SERIALIZE m_name = "Default";
 
     META_OBJECT
 };
