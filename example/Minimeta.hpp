@@ -298,25 +298,8 @@ namespace mmeta {
     // ======= Serialization
     // ========================================================================-------
 
-    // Example:
-    // Foo
-    //      float c
-    //      char d
-    //      Bar a
-    //          int a, int b
-    //      vector<int> ints
-
-    // write(Foo)
-    //      write(c) => Gets c from Foo, writes to memory
-    //      write(d) => Gets d from Foo, writes to memory
-    //      write(Bar) => Gets Bar from Foo (src)
-    //              write(a) => Gets a from Bar (src), writes to memory (dst)
-    //              write(b) => Gets b from Bar (src), writes to memory
-    //      write(ints) => Gets ints from Foo
-
     // SFINAE guarantees that non-serializable fields are never serialized
-    // 'src' points to start of data that is being written
-    // 'to' points to current write location in buffer 
+    // 'from' points to start (in memory) of field that we're writing
     template <typename T>
     std::enable_if_t<!is_serializable_v<T>, void>
     write(const mmfield* self, const void *from, binary_buffer_write& to) { }
@@ -333,11 +316,11 @@ namespace mmeta {
         to.write(static_cast<const binary_buffer_type*>(from), sizeof(T));
     }
 
-    template<typename T, int i>
+    template<typename T, int I>
     struct field_write_wrapper {
         // 'from' points to start of field's container. This is useful to get field's location in memory layout
         void operator()(const mmfield* container, const void *from, binary_buffer_write& to) const {
-            static constexpr const mmeta::mmfield field = mmeta::mmclass_storage<T>::AllFields[i];
+            static constexpr const mmeta::mmfield field = mmeta::mmclass_storage<T>::AllFields[I];
             field.type().actions().Write(&field, field.get_pointer_from(from), to);
         }
     };
@@ -357,13 +340,13 @@ namespace mmeta {
         typename T::size_type elementCount = value->size();
         write<typename T::size_type>(container, &elementCount, to);
         for(size_t i = 0; i < elementCount; i++) {
-            write<typename T::value_type>(container, value->data() + i, to);
+            write<typename T::value_type>(container, (value->data() + i), to);
         }
     }
 
     template <typename T>
     std::enable_if_t<is_serializable_v<T> && is_hashed_type_v<T>>
-    serialize(T toSerialize, binary_buffer_write& data) {
+    serialize(const T& toSerialize, binary_buffer_write& data) {
         write<T>(nullptr, &toSerialize, data);
     }
 
@@ -380,8 +363,7 @@ namespace mmeta {
     template <typename P>
     std::enable_if_t<std::is_fundamental_v<P>, void>
     read_serializable(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
-        const size_t fieldSize = fieldMeta->type().size();
-        from.read(static_cast<binary_buffer_type*>(to), fieldSize);
+        from.read(static_cast<binary_buffer_type*>(to), sizeof(P));
     }
 
     template<typename T, int i>
@@ -402,7 +384,16 @@ namespace mmeta {
     template <typename V>
     std::enable_if_t<is_vector_v<V>, void>
     read_serializable(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
-        
+        using vec_size_type = typename V::size_type;
+        using vec_value_type = typename V::value_type;
+        vec_size_type size = 0;
+        read<vec_size_type>(fieldMeta, from, &size);
+
+        V* value = reinterpret_cast<V*>(to);
+        value->resize(size);
+        for(vec_size_type i = 0; i < size; i++) {
+            read<vec_value_type>(fieldMeta, from, value->data() + i);
+        }
     }
 
     template <typename T>
