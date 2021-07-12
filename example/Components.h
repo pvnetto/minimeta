@@ -23,6 +23,8 @@ class SERIALIZABLE Player {
 public:
     int m_id = 0;
     PlayerState m_state;
+    std::vector<int> m_integers;
+    std::vector<std::vector<float>> m_nested;
 
     void SetPosition(Vec3 position) { m_position = position; }
     void SetName(const std::string& name) { }
