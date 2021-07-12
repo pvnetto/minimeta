@@ -24,7 +24,7 @@ int main() {
     static_assert(!mmeta::is_serializable_v<NotSerializable> && "But they don't have to");
     static_assert(mmeta::is_serializable_v<std::vector<int>> && "Even std::vector is serializable though");
     static_assert(!mmeta::is_serializable_v<std::vector<NotSerializable>> && "Unless it's a vector of non-serializables");
-    static_assert(!mmeta::is_serializable_v<std::vector<std::vector<int>>> && "Nested vectors are currently not supported :(");
+    static_assert(mmeta::is_serializable_v<std::vector<std::vector<int>>> && "Nested vectors are also supported");
 
     // TODO: Go back to using ReadFunc, WriteFunc
     //      - It's probably easier to find a way to define actions than to find a way to map hashes to types automatically,
@@ -51,7 +51,7 @@ int main() {
         
         player.Dump();
         printf("\n");
-        // mmeta::serialize(player, dataBuffer);
+        mmeta::serialize(player, dataBuffer);
     }
 
     Player metaPlayer = mmeta::deserialize<Player>(dataBuffer);
