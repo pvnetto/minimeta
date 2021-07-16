@@ -9,6 +9,7 @@ int main() {
     mmeta::typemeta_v<Vec3>.dump();
 
     static_assert(mmeta::typemeta_v<int>.name() == "int" && "Type should be int");
+    static_assert(mmeta::typemeta_v<int>.hash() > 0 && "Every type has a hash generated at compile-time");
     static_assert(mmeta::is_serializable_v<float> && "Primitive types should all be serializable");
     static_assert(mmeta::is_serializable_v<Vec3> && "User defined types can be serialized");
     static_assert(!mmeta::is_serializable_v<NotSerializable> && "But they don't have to");
@@ -19,6 +20,7 @@ int main() {
 
     // TODO: Add serializer versioning
     //      - Check how cista does it
+    // TODO: Add JSON or YAML serialization 
     // TODO: Fix all fixmes
 
     mmeta::binary_buffer dataBuffer;
@@ -32,7 +34,7 @@ int main() {
         player.SetName("Paiva");
         
         player.Dump();
-        printf("\n");
+
         mmeta::serialize(player, dataBuffer);
     }
 

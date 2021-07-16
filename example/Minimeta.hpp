@@ -27,7 +27,7 @@
 
 // FIXME: Add preffix/suffix for clang and gcc
 // FIXME: Test if it works on clang/gcc
-// based on: https://github.com/Manu343726/ctti/blob/master/include/ctti/detail/pretty_function.hpp
+// source: https://github.com/Manu343726/ctti/blob/master/include/ctti/detail/pretty_function.hpp
 #if defined(__clang__)
     #define MMETA_PRETTY_FUNCTION __PRETTY_FUNCTION__
     #define MMETA_NAME_PREFFIX "mmeta::utils::type_name<"
@@ -50,7 +50,7 @@ namespace mmeta {
     using hash_type = uint64_t;
 
     namespace utils {
-        // hash is based on: https://github.com/Leandros/metareflect
+        // source: https://github.com/Leandros/metareflect
         static constexpr hash_type kFNV1aValue = 0xcbf29ce484222325;
         static constexpr hash_type kFNV1aPrime = 0x100000001b3;
 
@@ -85,14 +85,14 @@ namespace mmeta {
 }
 
 namespace mmeta {
-    using binary_buffer_type = char;
-    using binary_buffer = std::stringstream;        // Buffer used by client for both read/write operations
-    using binary_buffer_write = std::ostream;
-    using binary_buffer_read = std::istream;
-
     // ========================================================================-------
     // ======= Types
     // ========================================================================-------
+    
+    using binary_buffer = std::stringstream;        // Buffer used by client for both read/write operations
+    using binary_buffer_type = binary_buffer::char_type;
+    using binary_buffer_write = std::ostream;
+    using binary_buffer_read = std::istream;
 
     class mmfield;
 
@@ -174,29 +174,34 @@ namespace mmeta {
 
     class mmclass {
     public:
-        constexpr mmclass(fieldseq fields) : m_fields(fields) { }
+        constexpr mmclass(fieldseq fields, hash_type version) : m_fields(fields), m_version(version) {}
 
         constexpr size_t field_count() const { return m_fields.size(); }
 
         constexpr fieldseq fields() const { return m_fields; }
+
+        constexpr hash_type version() const { return m_version; }
         
         void dump() const {
             std::cout  << "class: num_fields => " << field_count() << "\n";
         }
     private:
         const fieldseq m_fields;
+        const hash_type m_version;
     };
 
     template <typename T>
     struct mmclass_storage {
-        static constexpr mmfield* Fields() { return nullptr; }
-        static constexpr int FieldCount() { return 0; }
+        static constexpr size_t field_count() { return 0; }
+        static constexpr fieldseq fields() { return { nullptr, 0 }; }
+        static constexpr hash_type version() { return 0; }
     };
 
     
     // ========================================================================-------
     // ======= Type traits
     // ========================================================================-------
+    
     template <hash_type>
     struct hashed_type {
         struct notype {};
@@ -233,10 +238,10 @@ namespace mmeta {
 
     template<typename T>
     inline constexpr class_type<T> classmeta_v = {
-        { mmclass_storage<T>::Fields(), mmclass_storage<T>::FieldCount() }};
+        mmclass_storage<T>::fields(), mmclass_storage<T>::version()};
 
     template<class T>
-    struct is_vector : std::false_type { };
+    struct is_vector : std::false_type {};
 
     template<typename T>
     struct is_vector<std::vector<T>> : std::true_type {};
@@ -296,6 +301,25 @@ namespace mmeta {
         each_field_impl<T, W>(std::make_index_sequence<n>(), args...);
     }
 
+    template <typename T, std::size_t... I>
+    static constexpr std::enable_if_t<is_hashed_type_v<T>, hash_type>
+    combine_hashes(hash_type h, std::index_sequence<I...>) {
+        auto mix = [&](std::string_view other) {
+            h = utils::hash(other.data(), h);
+        };
+        ((mix(mmclass_storage<T>::AllFields[I].type().name())), ...);
+        return h;
+    }
+
+    template <typename T>
+    static constexpr std::enable_if_t<is_hashed_type_v<T>, hash_type>
+    class_version() {
+        return combine_hashes<T>(
+            typemeta_v<T>.hash(),
+            std::make_index_sequence<mmclass_storage<T>::field_count()>()
+        );
+    }
+
     // ========================================================================-------
     // ======= Serialization
     // ========================================================================-------
@@ -304,7 +328,7 @@ namespace mmeta {
     // 'from' points to start (in memory) of field that we're writing
     template <typename T>
     std::enable_if_t<!is_serializable_v<T>, void>
-    write(const mmfield* self, const void *from, binary_buffer_write& to) { }
+    write(const mmfield* self, const void *from, binary_buffer_write& to) {}
 
     template <typename T>
     std::enable_if_t<is_serializable_v<T>, void>
@@ -350,10 +374,14 @@ namespace mmeta {
     }
 
     template <typename T>
-    std::enable_if_t<is_serializable_v<T> && is_hashed_type_v<T>>
+    std::enable_if_t<is_serializable_v<T>>
     serialize(const T& toSerialize, binary_buffer_write& data) {
         write<T>(nullptr, &toSerialize, data);
     }
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>>
+    serialize(const T& toSerialize, binary_buffer_write& data) { }
 
     // 'from' points to start of field in memory
     // 'to' points to current write location in T
@@ -374,7 +402,8 @@ namespace mmeta {
     template<typename T, int i>
     struct read_field_wrapper {
         void operator()(const mmfield* fieldMeta, binary_buffer_read& from, void *to) const {
-            // 'to' points to start of field's container. This is useful to get field's location in class' memory layout.
+            // 'to' points to start (in memory) of class that contains field. This is useful to
+            // get field's location in the container's memory layout.
             static constexpr const mmeta::mmfield field = mmeta::mmclass_storage<T>::AllFields[i];
             field.type().actions().Read(&field, from, field.get_pointer_from(to));
         }
@@ -402,14 +431,16 @@ namespace mmeta {
     }
 
     template <typename T>
-    std::enable_if_t<is_serializable_v<T> && is_hashed_type_v<T>, T>
+    std::enable_if_t<is_serializable_v<T>, T>
     deserialize(binary_buffer_read& buffer) {
         T inst;
-
         read<T>(nullptr, buffer, (void*) &inst);
-
         return inst;
     }
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>, T>
+    deserialize(binary_buffer_read& buffer) { return T(); }
 
     template <typename T>
     constexpr mmactions type_actions() {
@@ -419,7 +450,6 @@ namespace mmeta {
     // ========================================================================-------
     // ======= Macro Dark-Magic
     // ========================================================================-------
-
 #ifndef __MMETA__
 #define MMHASHEDTYPE_DEF(t) \
 template <> struct hashed_type<::mmeta::typemeta_v<t>.hash()> { using value_type = t; };
@@ -430,10 +460,9 @@ template <> \
 struct mmclass_storage<type_name> { \
     using strg_type = type_name; \
     static constexpr mmfield AllFields[]{ __VA_ARGS__ }; \
-    static constexpr const mmfield *Fields() { return &AllFields[0]; } \
-    static constexpr int FieldCount() { \
-        return sizeof(AllFields) / sizeof(mmfield); \
-    } \
+    static constexpr int field_count() { return sizeof(AllFields) / sizeof(mmfield); } \
+    static constexpr fieldseq fields() { return { &AllFields[0], field_count() }; } \
+    static constexpr hash_type version() { return class_version<type_name>(); } \
 };
 
 #define MMFIELD_STORAGE(field, ...) { typemeta_v<decltype(strg_type::##field)>, #field, offsetof(strg_type, field) }
