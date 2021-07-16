@@ -338,7 +338,6 @@ namespace mmeta {
     template <typename T>
     std::enable_if_t<std::is_fundamental_v<T>, void>
     write_serializable(const mmfield* self, const void *from, binary_buffer_write& to) {
-        const size_t fieldSize = self->type().size();
         to.write(static_cast<const binary_buffer_type*>(from), sizeof(T));
     }
 
@@ -355,6 +354,8 @@ namespace mmeta {
     template <typename C>
     std::enable_if_t<is_hashed_type_v<C>, void>
     write_serializable(const mmfield* container, const void *from, binary_buffer_write& to) {
+        static constexpr hash_type version = classmeta_v<C>.version();
+        write<hash_type>(container, &version, to);
         each_field<C, field_write_wrapper>(container, from, to);
     }
 
@@ -412,6 +413,9 @@ namespace mmeta {
     template <typename C>
     std::enable_if_t<is_hashed_type_v<C>, void>
     read_serializable(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
+        hash_type version;
+        read<hash_type>(fieldMeta, from, &version);
+        assert(version == classmeta_v<C>.version() && "Trying to read binary from different version.");
         each_field<C, read_field_wrapper>(fieldMeta, from, to);
     }
 
