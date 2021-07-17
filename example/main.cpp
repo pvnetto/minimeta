@@ -17,9 +17,8 @@ int main() {
     static_assert(!mmeta::is_serializable_v<std::vector<NotSerializable>> && "Unless it's a vector of non-serializables");
     static_assert(mmeta::is_serializable_v<std::vector<std::vector<int>>> && "Nested vectors are also supported");
     static_assert(mmeta::is_serializable_v<std::string> && "You could also serialize non c-style strings.");
+    static_assert(mmeta::classmeta_v<Vec3>.version() != mmeta::classmeta_v<ColorRGB>.version() && "Metadata is versioned using hashes.");
 
-    // TODO: Add serializer versioning
-    //      - Check how cista does it
     // TODO: Add JSON or YAML serialization 
     // TODO: Fix all fixmes
 

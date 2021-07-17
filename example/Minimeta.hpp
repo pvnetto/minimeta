@@ -10,6 +10,7 @@
 #include <utility>
 #include <sstream>
 
+// FIXME: Find a way to make all classes friend of mmclass_storage without having to use META_OBJECT macro
 #ifdef __MMETA__
 #define SERIALIZABLE __attribute__((annotate("mm-type")))
 #define SERIALIZE __attribute__((annotate("mm-add")))
@@ -289,25 +290,21 @@ namespace mmeta {
     inline constexpr bool is_serializable_v = is_serializable<T>::value;
 
     // FIXME: Move to some kind of utility part of the code
-    template<typename T, template<typename T, int> class W, std::size_t... I, typename... Ts>
-    void each_field_impl(std::index_sequence<I...>, Ts&... args) {
-        int t[] = { 0, ((void)W<T, I>()(args...), 1)... };
-        (void) t;
-    }  
+    template <typename T, typename Fn, std::size_t... I, typename... Args>
+    static constexpr void for_each_field_impl(std::index_sequence<I...>, Fn& fn, Args&... args) {
+        ((fn(mmclass_storage<T>::AllFields[I], args...)), ...);
+    }
 
-    template<typename T, template<typename T, int> class W, typename... Ts>
-    void each_field(Ts&... args) {
-        static constexpr std::size_t n = mmeta::classmeta_v<T>.fields().size();
-        each_field_impl<T, W>(std::make_index_sequence<n>(), args...);
+    template <typename T, typename Fn, typename... Args>
+    static constexpr void for_each_field(Fn& fn, Args&... args) {
+        for_each_field_impl<T>(std::make_index_sequence<mmclass_storage<T>::field_count()>(), fn, args...);
     }
 
     template <typename T, std::size_t... I>
     static constexpr std::enable_if_t<is_hashed_type_v<T>, hash_type>
     combine_hashes(hash_type h, std::index_sequence<I...>) {
-        auto mix = [&](std::string_view other) {
-            h = utils::hash(other.data(), h);
-        };
-        ((mix(mmclass_storage<T>::AllFields[I].type().name())), ...);
+        auto mix_hash = [&](std::string_view other) { h = utils::hash(other.data(), h); };
+        ((mix_hash(mmclass_storage<T>::AllFields[I].type().name())), ...);
         return h;
     }
 
@@ -327,41 +324,35 @@ namespace mmeta {
     // SFINAE guarantees that non-serializable fields are never serialized
     // 'from' points to start (in memory) of field that we're writing
     template <typename T>
-    std::enable_if_t<!is_serializable_v<T>, void>
+    std::enable_if_t<!is_serializable_v<T>>
     write(const mmfield* self, const void *from, binary_buffer_write& to) {}
 
     template <typename T>
-    std::enable_if_t<is_serializable_v<T>, void>
+    std::enable_if_t<is_serializable_v<T>>
     write(const mmfield* self, const void *from, binary_buffer_write& to) { write_serializable<T>(self, from, to); }
 
     // Serializes primitive types
     template <typename T>
-    std::enable_if_t<std::is_fundamental_v<T>, void>
+    std::enable_if_t<std::is_fundamental_v<T>>
     write_serializable(const mmfield* self, const void *from, binary_buffer_write& to) {
         to.write(static_cast<const binary_buffer_type*>(from), sizeof(T));
     }
 
-    template<typename T, int I>
-    struct field_write_wrapper {
-        // 'from' points to start of field's container. This is useful to get field's location in memory layout
-        void operator()(const mmfield* container, const void *from, binary_buffer_write& to) const {
-            static constexpr const mmeta::mmfield field = mmeta::mmclass_storage<T>::AllFields[I];
-            field.type().actions().Write(&field, field.get_pointer_from(from), to);
-        }
-    };
-
     // Serializes class types
     template <typename C>
-    std::enable_if_t<is_hashed_type_v<C>, void>
+    std::enable_if_t<is_hashed_type_v<C>>
     write_serializable(const mmfield* container, const void *from, binary_buffer_write& to) {
         static constexpr hash_type version = classmeta_v<C>.version();
         write<hash_type>(container, &version, to);
-        each_field<C, field_write_wrapper>(container, from, to);
+
+        for_each_field<C>([](const mmfield& field, const mmfield* container, const void *from, binary_buffer_write& to) {
+            field.type().actions().Write(&field, field.get_pointer_from(from), to);
+        }, container, from, to);
     }
 
     // Serializes std dynamic types
     template <typename D>
-    std::enable_if_t<is_vector_v<D> || is_string_v<D>, void>
+    std::enable_if_t<is_vector_v<D> || is_string_v<D>>
     write_serializable(const mmfield* container, const void *from, binary_buffer_write& to) {
         using arr_size_type = typename D::size_type;
         using arr_value_type = typename D::value_type;
@@ -387,40 +378,34 @@ namespace mmeta {
     // 'from' points to start of field in memory
     // 'to' points to current write location in T
     template <typename T>
-    std::enable_if_t<!is_serializable_v<T>, void>
+    std::enable_if_t<!is_serializable_v<T>>
     read(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {}
 
     template <typename T>
-    std::enable_if_t<is_serializable_v<T>, void>
+    std::enable_if_t<is_serializable_v<T>>
     read(const mmfield* fieldMeta, binary_buffer_read& from, void *to) { read_serializable<T>(fieldMeta, from, to); }
 
     template <typename P>
-    std::enable_if_t<std::is_fundamental_v<P>, void>
+    std::enable_if_t<std::is_fundamental_v<P>>
     read_serializable(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
         from.read(static_cast<binary_buffer_type*>(to), sizeof(P));
     }
 
-    template<typename T, int i>
-    struct read_field_wrapper {
-        void operator()(const mmfield* fieldMeta, binary_buffer_read& from, void *to) const {
-            // 'to' points to start (in memory) of class that contains field. This is useful to
-            // get field's location in the container's memory layout.
-            static constexpr const mmeta::mmfield field = mmeta::mmclass_storage<T>::AllFields[i];
-            field.type().actions().Read(&field, from, field.get_pointer_from(to));
-        }
-    };
-
     template <typename C>
-    std::enable_if_t<is_hashed_type_v<C>, void>
+    std::enable_if_t<is_hashed_type_v<C>>
     read_serializable(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
         hash_type version;
         read<hash_type>(fieldMeta, from, &version);
+        
         assert(version == classmeta_v<C>.version() && "Trying to read binary from different version.");
-        each_field<C, read_field_wrapper>(fieldMeta, from, to);
+        
+        for_each_field<C>([](const mmfield& field, const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
+            field.type().actions().Read(&field, from, field.get_pointer_from(to));
+        }, fieldMeta, from, to);
     }
 
     template <typename D>
-    std::enable_if_t<is_vector_v<D> || is_string_v<D>, void>
+    std::enable_if_t<is_vector_v<D> || is_string_v<D>>
     read_serializable(const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
         using arr_size_type = typename D::size_type;
         using arr_value_type = typename D::value_type;
@@ -450,10 +435,12 @@ namespace mmeta {
     constexpr mmactions type_actions() {
         return { &read<T>, write<T> };
     }
+}
 
-    // ========================================================================-------
-    // ======= Macro Dark-Magic
-    // ========================================================================-------
+// ========================================================================-------
+// ======= Macro Dark-Magic
+// ========================================================================-------
+namespace mmeta {
 #ifndef __MMETA__
 #define MMHASHEDTYPE_DEF(t) \
 template <> struct hashed_type<::mmeta::typemeta_v<t>.hash()> { using value_type = t; };

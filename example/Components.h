@@ -14,6 +14,14 @@ struct SERIALIZABLE Vec3 {
     META_OBJECT
 };
 
+struct SERIALIZABLE ColorRGB {
+    float R = 0.f;
+    float G = 0.f;
+    float B = 0.f;
+
+    META_OBJECT
+};
+
 struct PlayerState {
     int State = 10;
     float Points = 300.f;

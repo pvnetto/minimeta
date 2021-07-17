@@ -9,6 +9,12 @@ namespace mmeta{
   struct is_serializable<Vec3> : std::true_type {};
 
   MMCLASS_STORAGE(Vec3,MMFIELD_STORAGE(X),MMFIELD_STORAGE(Y),MMFIELD_STORAGE(Z),)}
+struct ColorRGB;
+namespace mmeta{
+  template <>
+  struct is_serializable<ColorRGB> : std::true_type {};
+
+  MMCLASS_STORAGE(ColorRGB,MMFIELD_STORAGE(R),MMFIELD_STORAGE(G),MMFIELD_STORAGE(B),)}
 class Player;
 namespace mmeta{
   template <>
