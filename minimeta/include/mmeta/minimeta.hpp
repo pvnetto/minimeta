@@ -12,17 +12,15 @@
 
 #include "annotations.h"
 
-// FIXME: Add preffix/suffix for clang and gcc
-// FIXME: Test if it works on clang/gcc
 // source: https://github.com/Manu343726/ctti/blob/master/include/ctti/detail/pretty_function.hpp
 #if defined(__clang__)
     #define MMETA_PRETTY_FUNCTION __PRETTY_FUNCTION__
-    #define MMETA_NAME_PREFFIX "mmeta::utils::type_name<"
-    #define MMETA_NAME_SUFFIX ">" 
+    #define MMETA_NAME_PREFFIX "[T = "
+    #define MMETA_NAME_SUFFIX "]"
 #elif defined(__GNUC__) && !defined(__clang__)
     #define MMETA_PRETTY_FUNCTION __PRETTY_FUNCTION__
-    #define MMETA_NAME_PREFFIX "mmeta::utils::type_name<"
-    #define MMETA_NAME_SUFFIX ">" 
+    #define MMETA_NAME_PREFFIX "[with T = "
+    #define MMETA_NAME_SUFFIX "]" 
 #elif defined(_MSC_VER)
     #define MMETA_PRETTY_FUNCTION __FUNCSIG__
     #define MMETA_NAME_PREFFIX "mmeta::utils::type_name<"

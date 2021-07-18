@@ -3,7 +3,7 @@ add_executable(minimeta-example main.cpp)
 target_link_libraries(minimeta-example minimeta)
 
 target_include_directories(minimeta-example
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/vendor/minimeta)
+    PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
 option(RUN_MMETA "Run minimeta before building" OFF)
 
@@ -12,7 +12,7 @@ option(RUN_MMETA "Run minimeta before building" OFF)
 if(RUN_MMETA)
     add_custom_target(
         generate_meta
-        COMMAND cmd /c "minimeta ../main.cpp -p ../out/build/x64-Debug/compile_commands.json --extra-arg /std:c++17"
+        COMMAND cmd /c "minimeta ../example/main.cpp -p ../out/build/x64-Debug/compile_commands.json --extra-arg /std:c++17"
     )
     add_dependencies(minimeta-example generate_meta)
 endif()

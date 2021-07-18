@@ -6,6 +6,13 @@ project (minimeta VERSION 0.1
 add_library(minimeta INTERFACE)
 add_library(minimeta::minimeta ALIAS minimeta)
 
+target_compile_features(minimeta INTERFACE cxx_std_17)
+
+option(MMETA_BUILD_EXAMPLES "Build examples along with library" ON)
+
 target_include_directories(minimeta INTERFACE "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
                                                 "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-# set_target_properties(minimeta PROPERTIES LINKER_LANGUAGE CXX)
+
+if(MMETA_BUILD_EXAMPLES)
+    add_subdirectory(example)
+endif()
