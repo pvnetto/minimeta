@@ -10,21 +10,7 @@
 #include <utility>
 #include <sstream>
 
-// FIXME: Find a way to make all classes friend of mmclass_storage without having to use META_OBJECT macro
-#ifdef __MMETA__
-#define SERIALIZABLE __attribute__((annotate("mm-type")))
-#define SERIALIZE __attribute__((annotate("mm-add")))
-#define INTERNAL __attribute__((annotate("mm-ignore")))
-#define META_OBJECT 
-
-#define static_assert(x, ...)
-#else
-#define SERIALIZABLE
-#define SERIALIZE
-#define INTERNAL
-#define META_OBJECT \
-    template <typename T> friend struct mmeta::mmclass_storage;
-#endif
+#include "annotations.h"
 
 // FIXME: Add preffix/suffix for clang and gcc
 // FIXME: Test if it works on clang/gcc
@@ -279,11 +265,13 @@ namespace mmeta {
 
     template <typename T>
     struct is_serializable<std::vector<T>> {
-        static constexpr bool value = is_serializable_v<T>;
+        static constexpr bool value = is_serializable<T>::value;
     };
 
     template <>
-    struct is_serializable<std::string> : std::true_type {};
+    struct is_serializable<std::string> {
+        static constexpr bool value = true;
+    };
 #endif
 
     template<typename T>
@@ -291,12 +279,14 @@ namespace mmeta {
 
     // FIXME: Move to some kind of utility part of the code
     template <typename T, typename Fn, std::size_t... I, typename... Args>
-    static constexpr void for_each_field_impl(std::index_sequence<I...>, Fn& fn, Args&... args) {
-        ((fn(mmclass_storage<T>::AllFields[I], args...)), ...);
+    constexpr std::enable_if_t<is_hashed_type_v<T>>
+    for_each_field_impl(std::index_sequence<I...>, Fn&& fn, Args&... args) {
+        ((fn(mmclass_storage<T>::Fields[I], args...)), ...);
     }
 
     template <typename T, typename Fn, typename... Args>
-    static constexpr void for_each_field(Fn& fn, Args&... args) {
+    constexpr std::enable_if_t<is_hashed_type_v<T>>
+    for_each_field(Fn&& fn, Args&... args) {
         for_each_field_impl<T>(std::make_index_sequence<mmclass_storage<T>::field_count()>(), fn, args...);
     }
 
@@ -304,7 +294,7 @@ namespace mmeta {
     static constexpr std::enable_if_t<is_hashed_type_v<T>, hash_type>
     combine_hashes(hash_type h, std::index_sequence<I...>) {
         auto mix_hash = [&](std::string_view other) { h = utils::hash(other.data(), h); };
-        ((mix_hash(mmclass_storage<T>::AllFields[I].type().name())), ...);
+        ((mix_hash(mmclass_storage<T>::Fields[I].type().name())), ...);
         return h;
     }
 
@@ -345,9 +335,9 @@ namespace mmeta {
         static constexpr hash_type version = classmeta_v<C>.version();
         write<hash_type>(container, &version, to);
 
-        for_each_field<C>([](const mmfield& field, const mmfield* container, const void *from, binary_buffer_write& to) {
+        for_each_field<C>([&](const mmfield& field) {
             field.type().actions().Write(&field, field.get_pointer_from(from), to);
-        }, container, from, to);
+        });
     }
 
     // Serializes std dynamic types
@@ -357,7 +347,7 @@ namespace mmeta {
         using arr_size_type = typename D::size_type;
         using arr_value_type = typename D::value_type;
 
-        const D* value = reinterpret_cast<const D*>(from);
+        const D* value = static_cast<const D*>(from);
         arr_size_type elementCount = value->size();
         write<arr_size_type>(container, &elementCount, to);
         for(size_t i = 0; i < elementCount; i++) {
@@ -398,10 +388,10 @@ namespace mmeta {
         read<hash_type>(fieldMeta, from, &version);
         
         assert(version == classmeta_v<C>.version() && "Trying to read binary from different version.");
-        
-        for_each_field<C>([](const mmfield& field, const mmfield* fieldMeta, binary_buffer_read& from, void *to) {
+
+        for_each_field<C>([&](const mmfield& field) {
             field.type().actions().Read(&field, from, field.get_pointer_from(to));
-        }, fieldMeta, from, to);
+        });
     }
 
     template <typename D>
@@ -412,7 +402,7 @@ namespace mmeta {
         arr_size_type size = 0;
         read<arr_size_type>(fieldMeta, from, &size);
 
-        D* value = reinterpret_cast<D*>(to);
+        D* value = static_cast<D*>(to);
         value->resize(size);
         for(arr_size_type i = 0; i < size; i++) {
             read<arr_value_type>(fieldMeta, from, value->data() + i);
@@ -450,13 +440,13 @@ MMHASHEDTYPE_DEF(type_name)\
 template <> \
 struct mmclass_storage<type_name> { \
     using strg_type = type_name; \
-    static constexpr mmfield AllFields[]{ __VA_ARGS__ }; \
-    static constexpr int field_count() { return sizeof(AllFields) / sizeof(mmfield); } \
-    static constexpr fieldseq fields() { return { &AllFields[0], field_count() }; } \
+    static constexpr mmfield Fields[]{ __VA_ARGS__ }; \
+    static constexpr int field_count() { return sizeof(Fields) / sizeof(mmfield); } \
+    static constexpr fieldseq fields() { return { &Fields[0], field_count() }; } \
     static constexpr hash_type version() { return class_version<type_name>(); } \
 };
 
-#define MMFIELD_STORAGE(field, ...) { typemeta_v<decltype(strg_type::##field)>, #field, offsetof(strg_type, field) }
+#define MMFIELD_STORAGE(field, ...) { typemeta_v<decltype(strg_type::field)>, #field, offsetof(strg_type, field) }
 #else
 #define MMHASHEDTYPE_DEF(t)
 #define MMCLASS_STORAGE(x, ...)

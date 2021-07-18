@@ -1,6 +1,10 @@
 #pragma once
 
-#include "Minimeta.hpp"
+#include <cstdio>
+#include <vector>
+#include <string>
+
+#include <mmeta/annotations.h>
 
 struct SERIALIZABLE Vec3 {
     float X = 0.f;

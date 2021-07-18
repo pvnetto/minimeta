@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Minimeta.hpp"
+#include <mmeta/annotations.h>
 
 class SERIALIZABLE CustomAccessors {
     META_OBJECT

@@ -1,7 +1,7 @@
-#include <cstdio>
-
 #include "Components.h"
 #include "Examples.h"
+
+#include <mmeta/minimeta.hpp>
 
 int main() {
     mmeta::typemeta_v<int>.dump();
