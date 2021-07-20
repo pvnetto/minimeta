@@ -1,0 +1,3 @@
+[submodule "minimeta/vendor/yaml-cpp"]
+	path = minimeta/vendor/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git

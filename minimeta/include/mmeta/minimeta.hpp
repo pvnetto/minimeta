@@ -10,6 +10,8 @@
 #include <utility>
 #include <sstream>
 
+#include <yaml-cpp/yaml.h>
+
 #include "annotations.h"
 
 // source: https://github.com/Manu343726/ctti/blob/master/include/ctti/detail/pretty_function.hpp
@@ -85,11 +87,14 @@ namespace mmeta {
         using ReadFn = void (*)(const mmfield*, binary_buffer_read&, void *);
         using WriteFn = void (*)(const mmfield*, const void *, binary_buffer_write&);
 
-        constexpr mmactions(const ReadFn readFn, const WriteFn writeFn) :
-            Read(readFn), Write(writeFn) { }
+        using WriteYAMLFn = void (*)(const mmfield*, const void*, YAML::Node&);
+
+        constexpr mmactions(const ReadFn readFn, const WriteFn writeFn, const WriteYAMLFn writeYamlFn) :
+            Read(readFn), Write(writeFn), WriteYAML(writeYamlFn) {}
 
         const ReadFn Read;
         const WriteFn Write;
+        const WriteYAMLFn WriteYAML;
     };
 
     class mmtype {
@@ -98,7 +103,7 @@ namespace mmeta {
             m_size(size),
             m_hash(hash),
             m_name(name),
-            m_actions(actions) { }
+            m_actions(actions) {}
 
         inline constexpr std::string_view name() const { return m_name; }
         inline constexpr size_t size() const { return m_size; }
@@ -306,7 +311,7 @@ namespace mmeta {
     }
 
     // ========================================================================-------
-    // ======= Serialization
+    // ======= Binary Serialization
     // ========================================================================-------
 
     // SFINAE guarantees that non-serializable fields are never serialized
@@ -419,9 +424,68 @@ namespace mmeta {
     std::enable_if_t<!is_serializable_v<T>, T>
     deserialize(binary_buffer_read& buffer) { return T(); }
 
+    // ========================================================================-------
+    // ======= YAML Serialization
+    // ========================================================================-------
+
+    template <typename T>
+    std::enable_if_t<is_serializable_v<T>, YAML::Node>
+    serialize_yaml(const T& value) {
+        YAML::Node root;
+        write_yaml<T>(nullptr, &value, root);
+        return root;
+    }
+
+    template <typename T>
+    std::enable_if_t<is_serializable_v<T>>
+    write_yaml(const mmfield* self, const void* from, YAML::Node& parent) { write_serializable_yaml<T>(self, from, parent); }
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>>
+    write_yaml(const mmfield* self, const void* from, YAML::Node& parent) {}
+
+    template <typename T>
+    std::enable_if_t<std::is_fundamental_v<T> || is_string_v<T>>
+    write_serializable_yaml(const mmfield* self, const void* from, YAML::Node& parent) {
+        const T* value = static_cast<const T*>(from);
+        if(parent.IsSequence())
+            parent.push_back(*value);
+        else
+            parent[self->name().data()] = *value;
+    }
+
+    template <typename C>
+    std::enable_if_t<is_hashed_type_v<C>>
+    write_serializable_yaml(const mmfield* self, const void* from, YAML::Node& parent) {
+
+        YAML::Node objNode = YAML::Node();
+        if(parent.IsSequence()) parent.push_back(objNode);
+        else if(self) parent[self->name().data()] = objNode;
+        else objNode = parent;
+
+        for_each_field<C>([&](const mmfield& field) {
+            field.type().actions().WriteYAML(&field, field.get_pointer_from(from), objNode);
+        });
+    }
+
+    template <typename V>
+    std::enable_if_t<is_vector_v<V>>
+    write_serializable_yaml(const mmfield* self, const void* from, YAML::Node& parent) {
+        using arr_value_type = typename V::value_type;
+
+        YAML::Node seqNode = YAML::Node(YAML::NodeType::value::Sequence);
+        if(parent.IsSequence()) parent.push_back(seqNode);
+        else parent[self->name().data()] = seqNode;
+        
+        const V* vecInstance = static_cast<const V*>(from);
+        for(const auto& val : *(vecInstance)) {
+            write_yaml<arr_value_type>(nullptr, &val, seqNode);
+        }
+    }
+
     template <typename T>
     constexpr mmactions type_actions() {
-        return { &read<T>, write<T> };
+        return { &read<T>, &write<T>, &write_yaml<T> };
     }
 }
 
