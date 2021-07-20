@@ -37,7 +37,7 @@ int main() {
 
         YAML::Emitter emitter;
         emitter << mmeta::serialize_yaml(player);
-        auto content = emitter.c_str();
+        std::cout << emitter.c_str();
     }
 
     Player metaPlayer = mmeta::deserialize<Player>(dataBuffer);

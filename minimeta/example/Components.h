@@ -1,8 +1,7 @@
 #pragma once
 
-#include <cstdio>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <mmeta/annotations.h>
 
@@ -14,16 +13,12 @@ struct SERIALIZABLE Vec3 {
     void Dump() {
         printf("X => %f, Y => %f, Z => %f\n", X, Y, Z);
     }
-
-    META_OBJECT
 };
 
 struct SERIALIZABLE ColorRGB {
     float R = 0.f;
     float G = 0.f;
     float B = 0.f;
-
-    META_OBJECT
 };
 
 struct PlayerState {
@@ -56,8 +51,6 @@ private:
 struct SERIALIZABLE Transform {
     Vec3 Position { 0.f, 0.f, 0.f };
     float Rotation = 0.f;
-
-    META_OBJECT
 };
 
 #include "Components.generated.hpp"

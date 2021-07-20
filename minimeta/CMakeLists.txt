@@ -3,6 +3,8 @@ project (minimeta VERSION 0.1
         DESCRIPTION "Runtime static library for Minimeta"
         LANGUAGES CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS true)
+
 add_library(minimeta INTERFACE)
 add_library(minimeta::minimeta ALIAS minimeta)
 target_compile_features(minimeta INTERFACE cxx_std_17)

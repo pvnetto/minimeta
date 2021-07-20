@@ -459,9 +459,9 @@ namespace mmeta {
     write_serializable_yaml(const mmfield* self, const void* from, YAML::Node& parent) {
 
         YAML::Node objNode = YAML::Node();
-        if(parent.IsSequence()) parent.push_back(objNode);
-        else if(self) parent[self->name().data()] = objNode;
-        else objNode = parent;
+        if(parent.IsNull()) objNode = parent;
+        else if(parent.IsSequence()) parent.push_back(objNode);
+        else parent[self->name().data()] = objNode;
 
         for_each_field<C>([&](const mmfield& field) {
             field.type().actions().WriteYAML(&field, field.get_pointer_from(from), objNode);
@@ -494,11 +494,11 @@ namespace mmeta {
 // ========================================================================-------
 namespace mmeta {
 #ifndef __MMETA__
-#define MMHASHEDTYPE_DEF(t) \
+#define MMETA_CLASS_HASH(t) \
+template <> struct is_serializable<t> { static constexpr bool value = true; }; \
 template <> struct hashed_type<::mmeta::typemeta_v<t>.hash()> { using value_type = t; };
 
-#define MMCLASS_STORAGE(type_name, ...) \
-MMHASHEDTYPE_DEF(type_name)\
+#define MMETA_CLASS_STORAGE(type_name, ...) \
 template <> \
 struct mmclass_storage<type_name> { \
     using strg_type = type_name; \
@@ -508,10 +508,18 @@ struct mmclass_storage<type_name> { \
     static constexpr hash_type version() { return class_version<type_name>(); } \
 };
 
-#define MMFIELD_STORAGE(field, ...) { typemeta_v<decltype(strg_type::field)>, #field, offsetof(strg_type, field) }
+#define MMETA_FIELD(field, ...) { typemeta_v<decltype(strg_type::field)>, #field, offsetof(strg_type, field) }
+
+#define MMETA_CLASS(type_name, ...) \
+    namespace mmeta { \
+        MMETA_CLASS_HASH(type_name) \
+        MMETA_CLASS_STORAGE(type_name, __VA_ARGS__) \
+    }
 #else
-#define MMHASHEDTYPE_DEF(t)
-#define MMCLASS_STORAGE(x, ...)
-#define MMFIELD_STORAGE(x, ...)
+#define MMETA_CLASS_HASH(t)
+#define MMETA_CLASS_STORAGE(x, ...)
+#define MMETA_FIELD(x, ...)
+#define MMETA_CLASS(type_name, ...)
 #endif
+
 }
