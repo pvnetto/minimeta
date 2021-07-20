@@ -81,19 +81,23 @@ namespace mmeta {
     using binary_buffer_write = std::ostream;
     using binary_buffer_read = std::istream;
 
+    using yaml_node = YAML::Node;
+
     class mmfield;
 
     struct mmactions {
         using ReadFn = void (*)(const mmfield*, binary_buffer_read&, void *);
         using WriteFn = void (*)(const mmfield*, const void *, binary_buffer_write&);
 
+        using ReadYAMLFn = void (*)(const mmfield*, const yaml_node&, void *);
         using WriteYAMLFn = void (*)(const mmfield*, const void*, YAML::Node&);
 
-        constexpr mmactions(const ReadFn readFn, const WriteFn writeFn, const WriteYAMLFn writeYamlFn) :
-            Read(readFn), Write(writeFn), WriteYAML(writeYamlFn) {}
+        constexpr mmactions(const ReadFn readFn, const WriteFn writeFn, const ReadYAMLFn readYamlFn, const WriteYAMLFn writeYamlFn) :
+            Read(readFn), Write(writeFn), ReadYAML(readYamlFn), WriteYAML(writeYamlFn) {}
 
         const ReadFn Read;
         const WriteFn Write;
+        const ReadYAMLFn ReadYAML;
         const WriteYAMLFn WriteYAML;
     };
 
@@ -280,7 +284,10 @@ namespace mmeta {
     template<typename T>
     inline constexpr bool is_serializable_v = is_serializable<T>::value;
 
-    // FIXME: Move to some kind of utility part of the code
+    // ========================================================================-------
+    // ======= Storage Utils
+    // ========================================================================-------
+
     template <typename T, typename Fn, std::size_t... I, typename... Args>
     constexpr std::enable_if_t<is_hashed_type_v<T>>
     for_each_field_impl(std::index_sequence<I...>, Fn&& fn, Args&... args) {
@@ -314,15 +321,25 @@ namespace mmeta {
     // ======= Binary Serialization
     // ========================================================================-------
 
+    template <typename T>
+    std::enable_if_t<is_serializable_v<T>>
+    serialize(const T& toSerialize, binary_buffer_write& data) {
+        write<T>(nullptr, &toSerialize, data);
+    }
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>>
+    serialize(const T& toSerialize, binary_buffer_write& data) { }
+
     // SFINAE guarantees that non-serializable fields are never serialized
     // 'from' points to start (in memory) of field that we're writing
     template <typename T>
-    std::enable_if_t<!is_serializable_v<T>>
-    write(const mmfield* self, const void *from, binary_buffer_write& to) {}
-
-    template <typename T>
     std::enable_if_t<is_serializable_v<T>>
     write(const mmfield* self, const void *from, binary_buffer_write& to) { write_serializable<T>(self, from, to); }
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>>
+    write(const mmfield* self, const void *from, binary_buffer_write& to) {}
 
     // Serializes primitive types
     template <typename T>
@@ -359,14 +376,16 @@ namespace mmeta {
     }
 
     template <typename T>
-    std::enable_if_t<is_serializable_v<T>>
-    serialize(const T& toSerialize, binary_buffer_write& data) {
-        write<T>(nullptr, &toSerialize, data);
+    std::enable_if_t<is_serializable_v<T>, T>
+    deserialize(binary_buffer_read& buffer) {
+        T inst;
+        read<T>(nullptr, buffer, (void*) &inst);
+        return inst;
     }
 
     template <typename T>
-    std::enable_if_t<!is_serializable_v<T>>
-    serialize(const T& toSerialize, binary_buffer_write& data) { }
+    std::enable_if_t<!is_serializable_v<T>, T>
+    deserialize(binary_buffer_read& buffer) { return T(); }
 
     // 'from' points to start of field in memory
     // 'to' points to current write location in T
@@ -412,28 +431,14 @@ namespace mmeta {
         }
     }
 
-    template <typename T>
-    std::enable_if_t<is_serializable_v<T>, T>
-    deserialize(binary_buffer_read& buffer) {
-        T inst;
-        read<T>(nullptr, buffer, (void*) &inst);
-        return inst;
-    }
-
-    template <typename T>
-    std::enable_if_t<!is_serializable_v<T>, T>
-    deserialize(binary_buffer_read& buffer) { return T(); }
-
     // ========================================================================-------
     // ======= YAML Serialization
     // ========================================================================-------
 
     template <typename T>
-    std::enable_if_t<is_serializable_v<T>, YAML::Node>
-    serialize_yaml(const T& value) {
-        YAML::Node root;
+    std::enable_if_t<is_serializable_v<T>>
+    serialize_yaml(const T& value, yaml_node& root) {
         write_yaml<T>(nullptr, &value, root);
-        return root;
     }
 
     template <typename T>
@@ -448,20 +453,28 @@ namespace mmeta {
     std::enable_if_t<std::is_fundamental_v<T> || is_string_v<T>>
     write_serializable_yaml(const mmfield* self, const void* from, YAML::Node& parent) {
         const T* value = static_cast<const T*>(from);
-        if(parent.IsSequence())
+        if(parent.IsSequence()) {
             parent.push_back(*value);
-        else
+        }
+        else {
             parent[self->name().data()] = *value;
+        }
     }
 
     template <typename C>
     std::enable_if_t<is_hashed_type_v<C>>
     write_serializable_yaml(const mmfield* self, const void* from, YAML::Node& parent) {
-
         YAML::Node objNode = YAML::Node();
-        if(parent.IsNull()) objNode = parent;
-        else if(parent.IsSequence()) parent.push_back(objNode);
-        else parent[self->name().data()] = objNode;
+
+        if(parent.IsNull()) {
+            objNode = parent;
+        }
+        else if(parent.IsSequence()) {
+            parent.push_back(objNode);
+        }
+        else {
+            parent[self->name().data()] = objNode;
+        }
 
         for_each_field<C>([&](const mmfield& field) {
             field.type().actions().WriteYAML(&field, field.get_pointer_from(from), objNode);
@@ -474,8 +487,12 @@ namespace mmeta {
         using arr_value_type = typename V::value_type;
 
         YAML::Node seqNode = YAML::Node(YAML::NodeType::value::Sequence);
-        if(parent.IsSequence()) parent.push_back(seqNode);
-        else parent[self->name().data()] = seqNode;
+        if(parent.IsSequence()) {
+            parent.push_back(seqNode);
+        }
+        else {
+            parent[self->name().data()] = seqNode;
+        }
         
         const V* vecInstance = static_cast<const V*>(from);
         for(const auto& val : *(vecInstance)) {
@@ -484,8 +501,67 @@ namespace mmeta {
     }
 
     template <typename T>
+    std::enable_if_t<is_serializable_v<T>, T>
+    deserialize_yaml(const yaml_node& from) {
+        T inst;
+        read_yaml<T>(nullptr, from, &inst);
+        return inst;
+    }
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>, T>
+    deserialize_yaml(const yaml_node& from) { return T(); }
+
+    template <typename T>
+    std::enable_if_t<!is_serializable_v<T>>
+    read_yaml(const mmfield* self, const yaml_node& from, void *to) {}
+
+    template <typename T>
+    std::enable_if_t<is_serializable_v<T>>
+    read_yaml(const mmfield* self, const yaml_node& from, void *to) { read_serializable_yaml<T>(self, from, to); }
+
+    template <typename T>
+    std::enable_if_t<std::is_fundamental_v<T>>
+    read_serializable_yaml(const mmfield* self, const yaml_node& from, void *to) {
+        T value = from.as<T>();
+        memcpy(to, &value, sizeof(T));
+    }
+
+    template <typename T>
+    std::enable_if_t<is_string_v<T>>
+    read_serializable_yaml(const mmfield* self, const yaml_node& from, void *to) {
+        T* stringPtr = static_cast<T*>(to);
+        *stringPtr = from.as<T>();
+    }
+
+    template <typename C>
+    std::enable_if_t<is_hashed_type_v<C>>
+    read_serializable_yaml(const mmfield* self, const yaml_node& from, void *to) {
+        for_each_field<C>([&](const mmfield& field) {
+            yaml_node yamlField = from[field.name().data()];
+            field.type().actions().ReadYAML(&field, yamlField, field.get_pointer_from(to));
+        });
+    }
+
+    template <typename V>
+    std::enable_if_t<is_vector_v<V>>
+    read_serializable_yaml(const mmfield* self, const yaml_node& from, void *to) {
+        using arr_size_type = typename V::size_type;
+        using arr_value_type = typename V::value_type;
+
+        V* value = static_cast<V*>(to);
+        value->resize(from.size());
+
+        arr_size_type i = 0;
+        for(auto& yamlField : from) {
+            read_yaml<arr_value_type>(self, yamlField, value->data() + i);
+            i++;
+        }
+    }
+
+    template <typename T>
     constexpr mmactions type_actions() {
-        return { &read<T>, &write<T>, &write_yaml<T> };
+        return { &read<T>, &write<T>, &read_yaml<T>, &write_yaml<T> };
     }
 }
 
@@ -494,10 +570,6 @@ namespace mmeta {
 // ========================================================================-------
 namespace mmeta {
 #ifndef __MMETA__
-#define MMETA_CLASS_HASH(t) \
-template <> struct is_serializable<t> { static constexpr bool value = true; }; \
-template <> struct hashed_type<::mmeta::typemeta_v<t>.hash()> { using value_type = t; };
-
 #define MMETA_CLASS_STORAGE(type_name, ...) \
 template <> \
 struct mmclass_storage<type_name> { \
@@ -512,11 +584,13 @@ struct mmclass_storage<type_name> { \
 
 #define MMETA_CLASS(type_name, ...) \
     namespace mmeta { \
-        MMETA_CLASS_HASH(type_name) \
+        template <> \
+        struct is_serializable<type_name> : std::true_type {}; \
+        template <> \
+        struct hashed_type<::mmeta::typemeta_v<type_name>.hash()> { using value_type = type_name; }; \
         MMETA_CLASS_STORAGE(type_name, __VA_ARGS__) \
     }
 #else
-#define MMETA_CLASS_HASH(t)
 #define MMETA_CLASS_STORAGE(x, ...)
 #define MMETA_FIELD(x, ...)
 #define MMETA_CLASS(type_name, ...)

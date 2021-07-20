@@ -14,14 +14,13 @@ int main() {
     static_assert(mmeta::is_serializable_v<Vec3> && "User defined types can be serialized, as long as they're annotated");
     static_assert(!mmeta::is_serializable_v<NotSerializable> && "But they don't have to");
     static_assert(mmeta::is_serializable_v<std::vector<int>> && "Some std containers like std::vector are serializable");
-    static_assert(!mmeta::is_serializable_v<std::vector<NotSerializable>> && "Unless it's a vector of non-serializables");
+    static_assert(!mmeta::is_serializable_v<std::vector<NotSerializable>> && "Unless it's a container of non-serializables");
     static_assert(mmeta::is_serializable_v<std::vector<std::vector<int>>> && "Nested containers are also supported");
     static_assert(mmeta::is_serializable_v<std::string> && "You could also serialize non c-style strings.");
     static_assert(mmeta::classmeta_v<Vec3>.version() != mmeta::classmeta_v<ColorRGB>.version() && "Metadata is versioned using hashes.");
 
-    // TODO: Fix all fixmes
-
     mmeta::binary_buffer dataBuffer;
+    mmeta::yaml_node dataNode;
     {
         Player player;
         player.m_id = 3000;
@@ -34,14 +33,18 @@ int main() {
         player.Dump();
 
         mmeta::serialize(player, dataBuffer);
-
-        YAML::Emitter emitter;
-        emitter << mmeta::serialize_yaml(player);
-        std::cout << emitter.c_str();
+        mmeta::serialize_yaml(player, dataNode);
     }
 
     Player metaPlayer = mmeta::deserialize<Player>(dataBuffer);
     metaPlayer.Dump();
+
+    YAML::Emitter emitter;
+    emitter << dataNode;
+    std::cout << emitter.c_str() << "\n";
+
+    Player yamlPlayer = mmeta::deserialize_yaml<Player>(dataNode);
+    yamlPlayer.Dump();
 
     return 0;
 }
