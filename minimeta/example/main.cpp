@@ -39,12 +39,12 @@ int main() {
     Player metaPlayer = mmeta::deserialize<Player>(dataBuffer);
     metaPlayer.Dump();
 
-    YAML::Emitter emitter;
-    emitter << dataNode;
-    std::cout << emitter.c_str() << "\n";
-
     Player yamlPlayer = mmeta::deserialize_yaml<Player>(dataNode);
     yamlPlayer.Dump();
+
+    //YAML::Emitter emitter;
+    //emitter << dataNode;
+    //std::cout << emitter.c_str() << "\n";
 
     return 0;
 }
