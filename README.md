@@ -51,13 +51,13 @@ In order to make use of this tool, you should first **install** it:
 0) [Build/Install LLVM](https://llvm.org/docs/CMake.html).
 	- **This should take a long time**.
 2) Clone this project to `your/path/to/llvm/clang-tools-extra`
-3) Inside your/path/to/llvm/clang-tools-extra/CMakeLists.txt, add this line:
+3) Open `your/path/to/llvm/clang-tools-extra/CMakeLists.txt` and add this line:
 
 ```cmake
 add_subdirectory(minimeta)
 ```
 
-4) Rebuild LLVM from inside your/path/to/llvm/your-build-folder
+4) Rebuild LLVM from inside `your/path/to/llvm/your-build-folder`
 
 If you've done everything correctly, the tool should be available from your command line. 
 
