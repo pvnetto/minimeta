@@ -18,7 +18,7 @@ using namespace clang::tooling;
 
 static llvm::cl::OptionCategory s_MinimetaCategory{"minimeta options"};
 static cl::extrahelp s_CommonHelp{CommonOptionsParser::HelpMessage};
-static cl::extrahelp s_MoreHelp{"\nFor more info: github.com/pvnetto\n"};
+static cl::extrahelp s_MoreHelp{"\nFor more info: https://github.com/pvnetto/minimeta\n"};
 
 using namespace clang;
 using namespace clang::ast_matchers;
@@ -91,13 +91,9 @@ static auto GenerateStorageSrc(const mmeta::TypeInfo& typeMeta) {
 }
 
 void GenerateTypeMetadataSource(std::vector<mmeta::TypeInfo> &types) {
-  // TODO: Sort types by their filenames
-  // TODO: Generate a separate file for each different FileName
-
   std::unordered_map<std::string, std::vector<mmeta::TypeInfo>> metadataPools;
   for (const auto &metaType : types) {
     metadataPools[metaType.Filename].push_back(metaType);
-    metaType.Dump();
   }
 
   for (const auto &pool : metadataPools) {
@@ -176,16 +172,12 @@ public:
   }
 
   virtual void onEndOfTranslationUnit() override {
-    printf("Found %i types in translation unit:\n", (int)m_TypeMetadata.size());
+    printf("Found %i types in translation unit\n", (int)m_TypeMetadata.size());
     GenerateTypeMetadataSource(m_TypeMetadata);
   }
 
 private:
   std::vector<mmeta::TypeInfo> m_TypeMetadata;
-};
-
-class YetAgain : public SourceFileCallbacks {
-
 };
 
 int main(int argc, const char **argv) {

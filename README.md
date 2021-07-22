@@ -50,14 +50,26 @@ In order to make use of this tool, you should first **follow the [No LibTooling 
 
 0) [Build/Install LLVM](https://llvm.org/docs/CMake.html).
 	- **This should take a few hours**.
-2) Clone this project to `your/path/to/llvm/clang-tools-extra`
-3) Open `your/path/to/llvm/clang-tools-extra/CMakeLists.txt` and add this line:
+	
+1) Clone this project to `your/path/to/llvm/clang-tools-extra`
 
-```cmake
-add_subdirectory(minimeta)
+```bat
+cd path/to/llvm/clang-tools-extra
+git clone https://github.com/pvnetto/minimeta
 ```
 
-4) Rebuild LLVM from inside `your/path/to/llvm/your-build-folder`
+2) Open `your/path/to/llvm/clang-tools-extra/CMakeLists.txt` and add this line:
+
+```cmake
+add_subdirectory(minimeta/libtooling)
+```
+
+3) Rebuild LLVM from inside `your/path/to/llvm/your-build-folder`
+
+```bat
+cd your/path/to/llvm/build-folder
+cmake --build .
+```
 
 If you've done everything correctly, the tool should be available from your command line. 
 
