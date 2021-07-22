@@ -46,10 +46,10 @@ target_include_directories(your-target
 
 Minimeta comes with a tool made with [LLVM/Clang LibTooling](https://clang.llvm.org/docs/LibTooling.html) that parses your source code and creates reflection data for your annotated types (check the [Code Examples](https://github.com/pvnetto/minimeta#code-examples)).
 
-In order to make use of this tool, you should first **install** it:
+In order to make use of this tool, you should first **follow the [No LibTooling steps](https://github.com/pvnetto/minimeta#no-libtooling)** and then **install** LLVM along with the tool:
 
 0) [Build/Install LLVM](https://llvm.org/docs/CMake.html).
-	- **This should take a long time**.
+	- **This should take a few hours**.
 2) Clone this project to `your/path/to/llvm/clang-tools-extra`
 3) Open `your/path/to/llvm/clang-tools-extra/CMakeLists.txt` and add this line:
 
@@ -63,7 +63,7 @@ If you've done everything correctly, the tool should be available from your comm
 
 Source files parsed by LibTooling require a compilation database. Here's a nice source on [what is a compilation database and how to generate it](https://www.jetbrains.com/help/clion/compilation-database.html) for your project. If you're using CMake, **you can't use the Visual Studio generator** as it can't generate `compile_commands.json`.
 
-Now that you installed the tool and generated a compilation database for your file, all you have to do is **follow the No LibTooling steps** and then:
+Now that you installed the tool and generated a compilation database for your file, you should run minimeta from CLI:
 
 ```batch
 cd path/to/your/project/root
