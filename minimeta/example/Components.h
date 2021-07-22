@@ -32,6 +32,7 @@ public:
     PlayerState m_state;
     std::vector<int> m_integers;
     std::vector<std::vector<float>> m_nested;
+    std::vector<Vec3> m_targets;
 
     void SetPosition(Vec3 position) { m_position = position; }
     void SetName(const std::string& name) { m_name = name; }

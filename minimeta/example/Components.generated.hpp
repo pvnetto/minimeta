@@ -27,6 +27,7 @@ MMETA_CLASS(Player,
 	MMETA_FIELD(m_state),
 	MMETA_FIELD(m_integers),
 	MMETA_FIELD(m_nested),
+	MMETA_FIELD(m_targets),
 	MMETA_FIELD(m_position),
 	MMETA_FIELD(m_name),
 )
