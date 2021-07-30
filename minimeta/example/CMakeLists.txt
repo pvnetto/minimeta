@@ -1,18 +1,10 @@
-add_executable(minimeta-example main.cpp)
+option(MMETA_BUILD_COMPONENTS "Build components example along with library" OFF)
+option(MMETA_BUILD_STATIC_POLI "Build static polimorphism example along with library" ON)
 
-target_link_libraries(minimeta-example minimeta)
+if(MMETA_BUILD_COMPONENTS)
+add_subdirectory(components)
+endif()
 
-target_include_directories(minimeta-example
-    PUBLIC ${PROJECT_SOURCE_DIR}/include)
-
-option(RUN_MMETA "Run minimeta before building" OFF)
-
-# Uses /std:c++17 flag when compiling MSVC std library with clang, otherwise it should use -std=c++17
-# TODO: Add -std=c++17 when compiling with other platforms
-if(RUN_MMETA)
-    add_custom_target(
-        generate_meta
-        COMMAND cmd /c "minimeta ../example/main.cpp -p ../out/build/x64-Debug/compile_commands.json --extra-arg /std:c++17"
-    )
-    add_dependencies(minimeta-example generate_meta)
+if(MMETA_BUILD_STATIC_POLI)
+add_subdirectory(static_polimorphism)
 endif()

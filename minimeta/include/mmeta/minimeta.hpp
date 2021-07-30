@@ -110,7 +110,7 @@ namespace mmeta {
 
     template <typename Meta, typename = void>
     struct type_action_traits {
-        using action_type = typename basic_type_actions;
+        using action_type = basic_type_actions;
     };
 
     template <typename Meta>
@@ -244,7 +244,7 @@ namespace mmeta {
         sizeof(T),
         utils::hash(utils::type_name<T>::name),
         utils::type_name<T>::name,
-        basic_mmtype<Meta>::action_type::instantiate<T>()};
+        basic_mmtype<Meta>::action_type::template instantiate<T>()};
 
     template<typename T>
     inline constexpr class_type<T> classmeta_v = {
@@ -584,40 +584,5 @@ struct mmclass_storage<type_name> { \
 #define MMETA_FIELD(x, ...)
 #define MMETA_CLASS(type_name, ...)
 #endif
-
-}
-
-namespace mmeta {
-
-    //struct example_actions {
-    //    using ReadFn = void (*)();
-    //    using WriteFn = void (*)();
-
-    //    using ReadYAMLFn = void (*)();
-    //    using WriteYAMLFn = void (*)();
-
-    //    constexpr example_actions(const ReadFn readFn, const WriteFn writeFn, const ReadYAMLFn readYamlFn, const WriteYAMLFn writeYamlFn) :
-    //        Read(readFn), Write(writeFn), ReadYAML(readYamlFn), WriteYAML(writeYamlFn) {}
-
-    //    const ReadFn Read;
-    //    const WriteFn Write;
-    //    const ReadYAMLFn ReadYAML;
-    //    const WriteYAMLFn WriteYAML;
-
-    //    template <typename T>
-    //    static constexpr example_actions instantiate() {
-    //        return {
-    //            []() { std::cout << "Reading" << std::endl; },
-    //            []() { std::cout << "Writing" << std::endl; },
-    //            []() { std::cout << "Reading YAML" << std::endl; },
-    //            []() { std::cout << "Writing YAML" << std::endl; },
-    //        };
-    //    }
-    //};
-
-    //template <typename Meta>
-    //struct type_action_traits<Meta> {
-    //    using action_type = typename example_actions;
-    //};
 
 }

@@ -6,8 +6,6 @@ project(minimeta VERSION 0.1
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
-option(MMETA_BUILD_EXAMPLES "Build examples along with library" OFF)
-
 add_library(minimeta INTERFACE)
 add_library(minimeta::minimeta ALIAS minimeta)
 
@@ -18,6 +16,4 @@ target_compile_features(minimeta INTERFACE cxx_std_17)
 target_link_libraries(minimeta INTERFACE yaml-cpp)
 
 add_subdirectory(vendor)
-if(MMETA_BUILD_EXAMPLES)
-    add_subdirectory(example)
-endif()
+add_subdirectory(example)
