@@ -54,7 +54,7 @@ namespace mmeta {
 
         template <typename T>
         struct type_name {
-          static constexpr std::string_view namespaced_name() {
+          static constexpr std::string_view prettified_name() {
               constexpr std::string_view uglyName = { MMETA_PRETTY_FUNCTION };
 
               constexpr std::string_view preffix = { MMETA_NAME_PREFFIX }; 
@@ -66,13 +66,13 @@ namespace mmeta {
               return paddedFront.substr(0, suffixIndex);
           }
 
-          static constexpr std::string_view prettified_name() {
-              constexpr std::string_view namespacedName = namespaced_name();
+          static constexpr std::string_view clean_name() {
+              constexpr std::string_view namespacedName = prettified_name();
               constexpr const size_t namespaceIdx = namespacedName.find_last_of("::");
               return namespacedName.substr(namespaceIdx + 1);
           }
 
-          static constexpr std::string_view name = prettified_name();
+          static constexpr std::string_view name = clean_name();
         };
     }
 }
