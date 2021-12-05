@@ -7,8 +7,11 @@
 #include <mmeta/minimeta.hpp>
 
 
-struct Vec3;
-MMETA_CLASS(Vec3,
+namespace Math {
+	struct Vec3;
+}
+
+MMETA_CLASS(Math::Vec3,
 	MMETA_FIELD(X),
 	MMETA_FIELD(Y),
 	MMETA_FIELD(Z),

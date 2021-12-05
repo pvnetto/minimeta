@@ -54,16 +54,22 @@ namespace mmeta {
 
         template <typename T>
         struct type_name {
-          static constexpr std::string_view prettified_name() {
-              constexpr std::string_view ugly_name = { MMETA_PRETTY_FUNCTION };
+          static constexpr std::string_view namespaced_name() {
+              constexpr std::string_view uglyName = { MMETA_PRETTY_FUNCTION };
 
               constexpr std::string_view preffix = { MMETA_NAME_PREFFIX }; 
-              constexpr const size_t preffixIndex = ugly_name.find(preffix);
-              constexpr std::string_view padded_front = ugly_name.substr(preffixIndex + preffix.size());
+              constexpr size_t preffixIndex = uglyName.find(preffix);
+              constexpr std::string_view paddedFront = uglyName.substr(preffixIndex + preffix.size());
 
               constexpr std::string_view suffix = { MMETA_NAME_SUFFIX }; 
-              constexpr const size_t suffixIndex = padded_front.find(suffix);
-              return padded_front.substr(0, suffixIndex);
+              constexpr size_t suffixIndex = paddedFront.find(suffix);
+              return paddedFront.substr(0, suffixIndex);
+          }
+
+          static constexpr std::string_view prettified_name() {
+              constexpr std::string_view namespacedName = namespaced_name();
+              constexpr const size_t namespaceIdx = namespacedName.find_last_of("::");
+              return namespacedName.substr(namespaceIdx + 1);
           }
 
           static constexpr std::string_view name = prettified_name();
